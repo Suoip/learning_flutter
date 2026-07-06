@@ -1,121 +1,195 @@
 import 'package:flutter/material.dart';
 
-void main() {
-  runApp(const MyApp());
-}
+void main() => runApp(MaterialApp(
+  debugShowCheckedModeBanner: false,
+  home: Home(),
+));
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class Home extends StatelessWidget {
+  const Home({super.key});
 
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Flutter Demo',
-      theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a purple toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
-        colorScheme: .fromSeed(seedColor: Colors.blue),
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        toolbarHeight: 120.0,
+        backgroundColor: Colors.grey[200],
+        title: Column(
+          children: [
+            Text(
+              'John Smith',
+              style: TextStyle(
+                color: Colors.black,
+                fontSize: 40.0,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            Divider(
+              height: 20,
+              thickness: 2,
+              indent: 150,
+              endIndent: 150,
+              color: Colors.black,
+            ),
+            Text(
+              'Front End Developer',
+              style: TextStyle(
+                fontSize: 20.0,
+                color: Colors.black,
+                fontWeight: FontWeight.normal,
+              ),
+            ),
+          ],
+        ),
+        centerTitle: true,
       ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+      body: Body(),
     );
   }
 }
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
-
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
-  final String title;
-
-  @override
-  State<MyHomePage> createState() => _MyHomePageState();
-}
-
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
-
-  void _incrementCounter() {
-    setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
-    });
-  }
+class Body extends StatelessWidget {
+  const Body({super.key});
 
   @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
-    return Scaffold(
-      appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
-      ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
-        child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          //
-          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-          // action in the IDE, or press "p" in the console), to see the
-          // wireframe for each widget.
-          mainAxisAlignment: .center,
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(10.0, 20.0, 30.0, 0),
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('You have pushed the button this many times:'),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
+            Expanded(
+              flex: 8,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'EXPERIENCE',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18.0,
+                      letterSpacing: 2.0,
+                    ),
+                  ),
+                  Divider(thickness: 2, color: Colors.black),
+                  Text(
+                    '\t Company Name',
+                    style: TextStyle(color: Colors.grey[900], fontSize: 16.0,fontWeight: FontWeight.bold),
+                  ),
+                  Text(
+                      '\t JOB TITLE/ROLE\n\nAddinitonal Information Here\n\n',
+                      style :TextStyle(color: Colors.grey[500], fontSize: 13.0),),
+                  Text(
+                    '\t Company Name',
+                    style: TextStyle(color: Colors.grey[900], fontSize: 16.0,fontWeight: FontWeight.bold),
+                  ),
+                  Text(
+                    '\t JOB TITLE/ROLE\n\nAddinitonal Information Here\n\n',
+                    style :TextStyle(color: Colors.grey[500], fontSize: 13.0),),
+                  Text(
+                    '\t Company Name',
+                    style: TextStyle(color: Colors.grey[900], fontSize: 16.0,fontWeight: FontWeight.bold),
+                  ),
+                  Text(
+                    '\t JOB TITLE/ROLE\n\nAddinitonal Information Here\n\n',
+                    style :TextStyle(color: Colors.grey[500], fontSize: 13.0),),
+                  SizedBox(height: 40.0),
+                  Text(
+                    'EDUCATION',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18.0,
+                      letterSpacing: 2.0,
+                    ),
+                  ),
+                  Divider(thickness: 2, color: Colors.black),
+                  Text(
+                    '\t DEGREE/MAJOR',
+                    style: TextStyle(color: Colors.grey[900], fontSize: 16.0,fontWeight: FontWeight.bold),
+                  ),
+                  Text(
+                    '\t COLLEGE OR UNIVERSITY\n\nAddinitonal Information Here\n\n',
+                    style :TextStyle(color: Colors.grey[500], fontSize: 13.0),),
+                ],
+              ),
+            ),
+            VerticalDivider(
+              width: 40,
+              thickness: 2,
+              color: Colors.black,
+            ),
+            // Right Column: Contact, Portfolio, Expertise
+            Expanded(
+              flex: 4,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'CONTACT',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16.0,
+                      letterSpacing: 2.0,
+                    ),
+                  ),
+                  Divider(thickness: 2, color: Colors.black),
+                  Text(
+                    '\n\t E-MAIL\n',
+                    style: TextStyle(
+                        color: Colors.grey[600],
+                        fontSize: 13.0,
+                        fontWeight: FontWeight.bold
+                    ),),
+                  Text(
+                    'john.smith@email.com\n',
+                    style: TextStyle(color: Colors.grey[700], fontSize: 16.0),
+                  ),
+                  Text(
+                    '\t PHONE NUMBER',
+                    style: TextStyle(
+                        color: Colors.grey[700],
+                        fontSize: 13.0,
+                        fontWeight: FontWeight.bold
+                    ),),
+                  Text(
+                    '\n+1 234 567 890',
+                    style: TextStyle(color: Colors.grey[700], fontSize: 16.0),
+                  ),
+                  SizedBox(height: 30.0),
+                  Text(
+                    'PORTFOLIO',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18.0,
+                      letterSpacing: 2.0,
+                    ),
+                  ),
+                  Divider(thickness: 2, color: Colors.black),
+                  Text(
+                    '\nwww.johnsmith.dev',
+                    style: TextStyle(color: Colors.grey[700], fontSize: 16.0),
+                  ),
+                  SizedBox(height: 30.0),
+                  Text(
+                    'EXPERTISE',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18.0,
+                      letterSpacing: 2.0,
+                    ),
+                  ),
+                  Divider(thickness: 2, color: Colors.black),
+                  Text(
+                    '\nFlutter & Dart\n\nUI/UX Design\n\nJavaScript & React',
+                    style: TextStyle(color: Colors.grey[700], fontSize: 16.0),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
       ),
     );
   }
