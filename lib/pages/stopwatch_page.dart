@@ -11,11 +11,23 @@ class StopWatchApp extends StatelessWidget {
   }
 }
 
-class Home extends StatelessWidget {
+class Home extends StatefulWidget {
   const Home({super.key});
 
   @override
+  State<Home> createState() => _HomeState();
+}
+
+class _HomeState extends State<Home> {
+  Map<String, dynamic> _worldTimeData = {};
+
+  @override
   Widget build(BuildContext context) {
+    final routeData = ModalRoute.of(context)?.settings.arguments;
+    if (_worldTimeData.isEmpty && routeData is Map) {
+      _worldTimeData = Map<String, dynamic>.from(routeData);
+    }
+
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
@@ -24,6 +36,28 @@ class Home extends StatelessWidget {
         foregroundColor: Colors.white,
       ),
       body: const Body(),
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: 1,
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.access_time),
+            label: 'Clock',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.timer),
+            label: 'Stopwatch',
+          ),
+        ],
+        onTap: (index) {
+          if (index == 0) {
+            Navigator.pushReplacementNamed(
+              context,
+              '/home',
+              arguments: _worldTimeData,
+            );
+          }
+        },
+      ),
     );
   }
 }
@@ -41,5 +75,3 @@ class _BodyState extends State<Body> {
     return const Placeholder();
   }
 }
-
-

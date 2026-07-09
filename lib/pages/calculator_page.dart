@@ -19,6 +19,11 @@ class Home extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
+      appBar: AppBar(
+        title: const Text('Calculator'),
+        backgroundColor: Colors.black,
+        foregroundColor: Colors.white,
+      ),
       body: const SafeArea(child: Body()),
     );
   }
