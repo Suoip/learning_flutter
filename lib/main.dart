@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'pages/calculator.dart' as calculator_page;
-import 'pages/cv.dart' as cv_page;
+import 'pages/calculator_page.dart' as calculator_page;
+import 'pages/cv_page.dart' as cv_page;
+import 'pages/stopwatch_page.dart' as stopwatch_page;
 
 void main() => runApp(const LearningFlutterApp());
 
@@ -20,12 +21,14 @@ class ProjectsHomePage extends StatelessWidget {
   const ProjectsHomePage({super.key});
 
   static final List<_ProjectEntry> _projects = [
-    _ProjectEntry(title: 'calculator', builder: _buildCalculatorPage),
     _ProjectEntry(title: 'cv', builder: _buildCvPage),
+    _ProjectEntry(title: 'calculator', builder: _buildCalculatorPage),
+    _ProjectEntry(title: 'stopwatch', builder: _buildStopwatchPage),
   ];
 
   static Widget _buildCalculatorPage() => const calculator_page.Home();
   static Widget _buildCvPage() => const cv_page.Home();
+  static Widget _buildStopwatchPage() => const stopwatch_page.Home();
 
   @override
   Widget build(BuildContext context) {
