@@ -96,6 +96,9 @@ class _HomeState extends State<Home> {
       ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: 0,
+        backgroundColor: isDaytime ? null : Colors.black54,
+        selectedItemColor: isDaytime ? null : Colors.white,
+        unselectedItemColor: isDaytime ? null : Colors.white70,
         items: const [
           BottomNavigationBarItem(
             icon: Icon(Icons.access_time),

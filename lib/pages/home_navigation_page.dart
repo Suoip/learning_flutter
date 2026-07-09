@@ -7,8 +7,8 @@ class ProjectsHomePage extends StatelessWidget {
   const ProjectsHomePage({super.key});
 
   static final List<_ProjectEntry> _projects = [
-    _ProjectEntry(title: 'cv', builder: _buildCvPage),
-    _ProjectEntry(title: 'calculator', builder: _buildCalculatorPage),
+    _ProjectEntry(title: 'Cv Resume', builder: _buildCvPage),
+    _ProjectEntry(title: 'Calculator', builder: _buildCalculatorPage),
     _ProjectEntry(title: 'Clock', builder: _buildWorldTimePage),
   ];
 
