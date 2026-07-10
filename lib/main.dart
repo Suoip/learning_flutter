@@ -4,8 +4,15 @@ import 'pages/home_navigation_page.dart';
 import 'pages/stopwatch_page.dart' as stopwatch_page;
 import 'pages/worldtime_page.dart' as time_page;
 import 'resources_and_services/loading.dart';
+import 'resources_and_services/supabase_client.dart';
 
-void main() => runApp(const LearningFlutterApp());
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await AppSupabase.initialize();
+  runApp(const LearningFlutterApp());
+}
+
+// void main() => runApp(const LearningFlutterApp());
 
 class LearningFlutterApp extends StatelessWidget {
   const LearningFlutterApp({super.key});

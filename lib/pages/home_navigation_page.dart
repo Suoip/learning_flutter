@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'calculator_page.dart' as calculator_page;
 import 'cv_page.dart' as cv_page;
+import 'notes_page.dart' as notes_page;
 import '../resources_and_services/loading.dart' as world_time_loading;
 
 class ProjectsHomePage extends StatelessWidget {
@@ -10,11 +11,13 @@ class ProjectsHomePage extends StatelessWidget {
     _ProjectEntry(title: 'Cv Resume', builder: _buildCvPage),
     _ProjectEntry(title: 'Calculator', builder: _buildCalculatorPage),
     _ProjectEntry(title: 'Clock', builder: _buildWorldTimePage),
+    _ProjectEntry(title: 'Notes', builder: _buildNotesPage),
   ];
 
   static Widget _buildCalculatorPage() => const calculator_page.Home();
   static Widget _buildCvPage() => const cv_page.Home();
   static Widget _buildWorldTimePage() => const world_time_loading.Loading();
+  static Widget _buildNotesPage() => const notes_page.NotesPage();
 
   @override
   Widget build(BuildContext context) {
