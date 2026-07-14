@@ -4,7 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"No backend runtime tests configured yet.\"",
+    "setup:db": "echo \"Run backend/sql/001_notes_profiles_storage.sql in Supabase SQL editor.\""
   },
   "keywords": [],
   "author": "",

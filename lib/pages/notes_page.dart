@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../resources_and_services/notes_logic.dart';
 
@@ -14,7 +15,9 @@ class _NotesPageState extends State<NotesPage> {
   final TextEditingController _searchController = TextEditingController();
 
   List<NoteItem> _notes = [];
+  UserProfile? _profile;
   bool _loadingNotes = true;
+  bool _loadingProfile = true;
   String? _notesError;
   String _searchQuery = '';
   NoteQuickFilter _activeFilter = NoteQuickFilter.all;
@@ -27,6 +30,7 @@ class _NotesPageState extends State<NotesPage> {
         _searchQuery = _searchController.text.trim().toLowerCase();
       });
     });
+    _loadProfile();
     _loadNotes();
   }
 
@@ -41,7 +45,9 @@ class _NotesPageState extends State<NotesPage> {
     if (user == null) {
       setState(() {
         _notes = [];
+        _profile = null;
         _loadingNotes = false;
+        _loadingProfile = false;
       });
       return;
     }
@@ -66,6 +72,59 @@ class _NotesPageState extends State<NotesPage> {
         _notesError = error.toString();
       });
     }
+  }
+
+  Future<void> _loadProfile() async {
+    final user = _logic.currentUser;
+    if (user == null) {
+      if (!mounted) return;
+      setState(() {
+        _profile = null;
+        _loadingProfile = false;
+      });
+      return;
+    }
+
+    if (mounted) {
+      setState(() {
+        _loadingProfile = true;
+      });
+    }
+
+    try {
+      final profile = await _logic.fetchCurrentProfile();
+      if (!mounted) return;
+      setState(() {
+        _profile = profile;
+        _loadingProfile = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _profile = null;
+        _loadingProfile = false;
+      });
+    }
+  }
+
+  Future<void> _onAuthenticated() async {
+    await Future.wait([
+      _loadNotes(),
+      _loadProfile(),
+    ]);
+  }
+
+  Future<void> _openProfile() async {
+    final updatedProfile = await Navigator.of(context).push<UserProfile>(
+      MaterialPageRoute(
+        builder: (_) => const _NotesProfilePage(),
+      ),
+    );
+
+    if (!mounted || updatedProfile == null) return;
+    setState(() {
+      _profile = updatedProfile;
+    });
   }
 
   List<NoteItem> get _filteredNotes {
@@ -131,7 +190,8 @@ class _NotesPageState extends State<NotesPage> {
       builder: (context) {
         return AlertDialog(
           title: const Text('Delete Note'),
-          content: Text('Delete "${note.title}"? This action cannot be undone.'),
+          content:
+              Text('Delete "${note.title}"? This action cannot be undone.'),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
@@ -212,8 +272,10 @@ class _NotesPageState extends State<NotesPage> {
     if (!mounted) return;
     setState(() {
       _notes = [];
+      _profile = null;
       _searchController.clear();
       _loadingNotes = false;
+      _loadingProfile = false;
       _notesError = null;
     });
   }
@@ -275,7 +337,8 @@ class _NotesPageState extends State<NotesPage> {
           Card(
             elevation: 0,
             color: cs.surfaceContainerHighest,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
             child: const Padding(
               padding: EdgeInsets.all(24),
               child: Column(
@@ -321,7 +384,8 @@ class _NotesPageState extends State<NotesPage> {
               color: Colors.red.shade400,
               borderRadius: BorderRadius.circular(18),
             ),
-            child: const Icon(Icons.delete_outline_rounded, color: Colors.white),
+            child:
+                const Icon(Icons.delete_outline_rounded, color: Colors.white),
           ),
           confirmDismiss: (_) async {
             await _deleteNote(note);
@@ -332,7 +396,8 @@ class _NotesPageState extends State<NotesPage> {
             color: cs.surface,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(18),
-              side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.55)),
+              side:
+                  BorderSide(color: cs.outlineVariant.withValues(alpha: 0.55)),
             ),
             child: InkWell(
               borderRadius: BorderRadius.circular(18),
@@ -424,7 +489,7 @@ class _NotesPageState extends State<NotesPage> {
     final isLoggedIn = _logic.currentUser != null;
     if (!isLoggedIn) {
       return _NotesAuthPage(
-        onAuthenticated: _loadNotes,
+        onAuthenticated: _onAuthenticated,
       );
     }
 
@@ -437,6 +502,24 @@ class _NotesPageState extends State<NotesPage> {
         title: const Text('Notes'),
         scrolledUnderElevation: 0,
         actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 4),
+            child: IconButton(
+              tooltip: 'Profile',
+              onPressed: _loadingProfile ? null : _openProfile,
+              icon: _loadingProfile
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : _ProfileAvatar(
+                      username: _profile?.username,
+                      avatarUrl: _profile?.avatarUrl,
+                      radius: 14,
+                    ),
+            ),
+          ),
           IconButton(
             tooltip: 'Sign out',
             onPressed: _logout,
@@ -457,7 +540,8 @@ class _NotesPageState extends State<NotesPage> {
                     decoration: BoxDecoration(
                       color: cs.surface,
                       borderRadius: BorderRadius.circular(18),
-                      border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.55)),
+                      border: Border.all(
+                          color: cs.outlineVariant.withValues(alpha: 0.55)),
                     ),
                     child: Row(
                       children: [
@@ -468,8 +552,10 @@ class _NotesPageState extends State<NotesPage> {
                               hintText: 'Search by title',
                               prefixIcon: const Icon(Icons.search_rounded),
                               filled: true,
-                              fillColor: cs.surfaceContainerHighest.withValues(alpha: 0.45),
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 14),
+                              fillColor: cs.surfaceContainerHighest
+                                  .withValues(alpha: 0.45),
+                              contentPadding:
+                                  const EdgeInsets.symmetric(horizontal: 14),
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(14),
                                 borderSide: BorderSide.none,
@@ -613,7 +699,8 @@ class _NotesAuthPageState extends State<_NotesAuthPage> {
                   color: cs.surface,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(26),
-                    side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
+                    side: BorderSide(
+                        color: cs.outlineVariant.withValues(alpha: 0.5)),
                   ),
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(22, 24, 22, 22),
@@ -631,7 +718,8 @@ class _NotesAuthPageState extends State<_NotesAuthPage> {
                           const Text(
                             'Welcome to Notes',
                             textAlign: TextAlign.center,
-                            style: TextStyle(fontSize: 27, fontWeight: FontWeight.w700),
+                            style: TextStyle(
+                                fontSize: 27, fontWeight: FontWeight.w700),
                           ),
                           const SizedBox(height: 8),
                           Text(
@@ -642,8 +730,10 @@ class _NotesAuthPageState extends State<_NotesAuthPage> {
                           const SizedBox(height: 22),
                           SegmentedButton<bool>(
                             segments: const [
-                              ButtonSegment<bool>(value: false, label: Text('Login')),
-                              ButtonSegment<bool>(value: true, label: Text('Register')),
+                              ButtonSegment<bool>(
+                                  value: false, label: Text('Login')),
+                              ButtonSegment<bool>(
+                                  value: true, label: Text('Register')),
                             ],
                             selected: {_isRegister},
                             onSelectionChanged: (value) {
@@ -661,7 +751,8 @@ class _NotesAuthPageState extends State<_NotesAuthPage> {
                             decoration: InputDecoration(
                               labelText: 'Username',
                               hintText: 'e.g. John_Doe123',
-                              prefixIcon: const Icon(Icons.person_outline_rounded),
+                              prefixIcon:
+                                  const Icon(Icons.person_outline_rounded),
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(14),
                               ),
@@ -669,8 +760,7 @@ class _NotesAuthPageState extends State<_NotesAuthPage> {
                             validator: (value) {
                               final input = value?.trim() ?? '';
                               if (input.isEmpty) return 'Username is required';
-                              final allowed = RegExp(r'^[a-zA-Z0-9_.-]{3,30}$');
-                              if (!allowed.hasMatch(input)) {
+                              if (!NotesLogic.isValidUsername(input)) {
                                 return 'Use 3-30 chars: letters, numbers, _, -, .';
                               }
                               return null;
@@ -684,7 +774,8 @@ class _NotesAuthPageState extends State<_NotesAuthPage> {
                             onFieldSubmitted: (_) => _submit(),
                             decoration: InputDecoration(
                               labelText: 'Password',
-                              prefixIcon: const Icon(Icons.lock_outline_rounded),
+                              prefixIcon:
+                                  const Icon(Icons.lock_outline_rounded),
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(14),
                               ),
@@ -722,9 +813,11 @@ class _NotesAuthPageState extends State<_NotesAuthPage> {
                                 ? const SizedBox(
                                     height: 18,
                                     width: 18,
-                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2),
                                   )
-                                : Text(_isRegister ? 'Create Account' : 'Login'),
+                                : Text(
+                                    _isRegister ? 'Create Account' : 'Login'),
                           ),
                         ],
                       ),
@@ -736,6 +829,427 @@ class _NotesAuthPageState extends State<_NotesAuthPage> {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _ProfileAvatar extends StatelessWidget {
+  const _ProfileAvatar({
+    required this.username,
+    required this.avatarUrl,
+    required this.radius,
+  });
+
+  final String? username;
+  final String? avatarUrl;
+  final double radius;
+
+  @override
+  Widget build(BuildContext context) {
+    final fallbackName = (username ?? '').trim();
+    final initial =
+        fallbackName.isEmpty ? '?' : fallbackName.substring(0, 1).toUpperCase();
+
+    final hasAvatar = (avatarUrl ?? '').isNotEmpty;
+
+    return CircleAvatar(
+      radius: radius,
+      foregroundImage: hasAvatar ? NetworkImage(avatarUrl!) : null,
+      child: Text(
+        initial,
+        style: TextStyle(
+          fontWeight: FontWeight.w700,
+          fontSize: radius * 0.75,
+        ),
+      ),
+    );
+  }
+}
+
+class _NotesProfilePage extends StatefulWidget {
+  const _NotesProfilePage();
+
+  @override
+  State<_NotesProfilePage> createState() => _NotesProfilePageState();
+}
+
+class _NotesProfilePageState extends State<_NotesProfilePage> {
+  final NotesLogic _logic = NotesLogic();
+  final ImagePicker _imagePicker = ImagePicker();
+  final _usernameController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
+  final _usernameFormKey = GlobalKey<FormState>();
+  final _passwordFormKey = GlobalKey<FormState>();
+
+  UserProfile? _profile;
+  bool _loading = true;
+  bool _savingUsername = false;
+  bool _savingPassword = false;
+  bool _uploadingAvatar = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProfile();
+  }
+
+  @override
+  void dispose() {
+    _usernameController.dispose();
+    _passwordController.dispose();
+    _confirmPasswordController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadProfile() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+
+    try {
+      final profile = await _logic.fetchCurrentProfile();
+      if (!mounted) return;
+      _usernameController.text = profile.username;
+      setState(() {
+        _profile = profile;
+        _loading = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = error.toString();
+      });
+    }
+  }
+
+  Future<void> _pickAndUploadAvatar() async {
+    if (_uploadingAvatar) return;
+
+    final picked = await _imagePicker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 85,
+      maxWidth: 1200,
+      maxHeight: 1200,
+    );
+    if (picked == null) return;
+
+    final filePath = picked.path.toLowerCase();
+    final dotIndex = filePath.lastIndexOf('.');
+    final rawExtension =
+        dotIndex > -1 ? filePath.substring(dotIndex + 1) : 'jpg';
+    final extension = rawExtension.replaceAll(RegExp(r'[^a-z0-9]'), '');
+    final sanitizedExtension = extension.isEmpty ? 'jpg' : extension;
+
+    setState(() {
+      _uploadingAvatar = true;
+      _error = null;
+    });
+
+    try {
+      final bytes = await picked.readAsBytes();
+      final updatedProfile = await _logic.uploadProfileAvatar(
+        bytes: bytes,
+        extension: sanitizedExtension,
+      );
+      if (!mounted) return;
+      setState(() {
+        _profile = updatedProfile;
+        _uploadingAvatar = false;
+      });
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Profile picture updated.')));
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _uploadingAvatar = false;
+        _error = error.toString().replaceFirst('Exception: ', '');
+      });
+    }
+  }
+
+  Future<void> _saveUsername() async {
+    final valid = _usernameFormKey.currentState?.validate() ?? false;
+    if (!valid || _savingUsername || _profile == null) return;
+
+    setState(() {
+      _savingUsername = true;
+      _error = null;
+    });
+
+    try {
+      final updatedProfile =
+          await _logic.updateUsername(_usernameController.text);
+      if (!mounted) return;
+      setState(() {
+        _profile = updatedProfile;
+        _savingUsername = false;
+      });
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Username updated.')));
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _savingUsername = false;
+        _error = error.toString().replaceFirst('Exception: ', '');
+      });
+    }
+  }
+
+  Future<void> _savePassword() async {
+    final valid = _passwordFormKey.currentState?.validate() ?? false;
+    if (!valid || _savingPassword) return;
+
+    setState(() {
+      _savingPassword = true;
+      _error = null;
+    });
+
+    try {
+      await _logic.updatePassword(_passwordController.text);
+      if (!mounted) return;
+      _passwordController.clear();
+      _confirmPasswordController.clear();
+      setState(() {
+        _savingPassword = false;
+      });
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Password updated.')));
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _savingPassword = false;
+        _error = error.toString().replaceFirst('Exception: ', '');
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    return Scaffold(
+      backgroundColor: cs.surfaceContainerLowest,
+      appBar: AppBar(
+        title: const Text('Profile'),
+        scrolledUnderElevation: 0,
+        leading: IconButton(
+          onPressed: () => Navigator.of(context).pop(_profile),
+          icon: const Icon(Icons.arrow_back_rounded),
+        ),
+      ),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : SafeArea(
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+                children: [
+                  if (_error != null) ...[
+                    Card(
+                      color: Colors.red.shade50,
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Text(
+                          _error!,
+                          style: TextStyle(color: Colors.red.shade700),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                  ],
+                  Card(
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                      side: BorderSide(
+                        color: cs.outlineVariant.withValues(alpha: 0.5),
+                      ),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(18),
+                      child: Column(
+                        children: [
+                          _ProfileAvatar(
+                            username: _profile?.username,
+                            avatarUrl: _profile?.avatarUrl,
+                            radius: 44,
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            '@${_profile?.username ?? ''}',
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          OutlinedButton.icon(
+                            onPressed:
+                                _uploadingAvatar ? null : _pickAndUploadAvatar,
+                            icon: _uploadingAvatar
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2),
+                                  )
+                                : const Icon(Icons.photo_camera_outlined),
+                            label: const Text('Change profile picture'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Card(
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                      side: BorderSide(
+                        color: cs.outlineVariant.withValues(alpha: 0.5),
+                      ),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
+                      child: Form(
+                        key: _usernameFormKey,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Username',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            TextFormField(
+                              controller: _usernameController,
+                              decoration: InputDecoration(
+                                labelText: 'Username',
+                                prefixIcon:
+                                    const Icon(Icons.person_outline_rounded),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                              ),
+                              validator: (value) {
+                                final input = value?.trim() ?? '';
+                                if (input.isEmpty) {
+                                  return 'Username is required';
+                                }
+                                if (!NotesLogic.isValidUsername(input)) {
+                                  return 'Use 3-30 chars: letters, numbers, _, -, .';
+                                }
+                                return null;
+                              },
+                            ),
+                            const SizedBox(height: 12),
+                            FilledButton(
+                              onPressed: _savingUsername ? null : _saveUsername,
+                              child: _savingUsername
+                                  ? const SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: CircularProgressIndicator(
+                                          strokeWidth: 2),
+                                    )
+                                  : const Text('Save username'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Card(
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                      side: BorderSide(
+                        color: cs.outlineVariant.withValues(alpha: 0.5),
+                      ),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
+                      child: Form(
+                        key: _passwordFormKey,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Change password',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            TextFormField(
+                              controller: _passwordController,
+                              obscureText: true,
+                              decoration: InputDecoration(
+                                labelText: 'New password',
+                                prefixIcon:
+                                    const Icon(Icons.lock_outline_rounded),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                              ),
+                              validator: (value) {
+                                final input = value ?? '';
+                                if (input.length < 6) {
+                                  return 'Password must be at least 6 characters';
+                                }
+                                return null;
+                              },
+                            ),
+                            const SizedBox(height: 10),
+                            TextFormField(
+                              controller: _confirmPasswordController,
+                              obscureText: true,
+                              decoration: InputDecoration(
+                                labelText: 'Confirm new password',
+                                prefixIcon:
+                                    const Icon(Icons.lock_reset_outlined),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                              ),
+                              validator: (value) {
+                                if ((value ?? '') != _passwordController.text) {
+                                  return 'Passwords do not match';
+                                }
+                                return null;
+                              },
+                            ),
+                            const SizedBox(height: 12),
+                            FilledButton(
+                              onPressed: _savingPassword ? null : _savePassword,
+                              child: _savingPassword
+                                  ? const SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: CircularProgressIndicator(
+                                          strokeWidth: 2),
+                                    )
+                                  : const Text('Update password'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
     );
   }
 }
@@ -792,7 +1306,8 @@ class _NoteEditorPageState extends State<_NoteEditorPage> {
     });
 
     try {
-      await _logic.updateNote(noteId: widget.note.id, title: title, content: content);
+      await _logic.updateNote(
+          noteId: widget.note.id, title: title, content: content);
 
       _hasSavedOnce = true;
       if (!mounted) return;
@@ -908,7 +1423,8 @@ class _NoteEditorPageState extends State<_NoteEditorPage> {
             decoration: BoxDecoration(
               color: cs.surface,
               borderRadius: BorderRadius.circular(22),
-              border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.55)),
+              border:
+                  Border.all(color: cs.outlineVariant.withValues(alpha: 0.55)),
             ),
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 10),
@@ -916,7 +1432,8 @@ class _NoteEditorPageState extends State<_NoteEditorPage> {
                 children: [
                   TextField(
                     controller: _titleController,
-                    style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w700),
+                    style: const TextStyle(
+                        fontSize: 28, fontWeight: FontWeight.w700),
                     decoration: InputDecoration(
                       hintText: 'Title',
                       border: InputBorder.none,

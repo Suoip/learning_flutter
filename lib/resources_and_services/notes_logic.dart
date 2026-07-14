@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -39,11 +41,41 @@ class NoteItem {
   }
 }
 
+class UserProfile {
+  const UserProfile({
+    required this.id,
+    required this.username,
+    required this.avatarUrl,
+  });
+
+  final String id;
+  final String username;
+  final String? avatarUrl;
+
+  factory UserProfile.fromMap({
+    required User user,
+    required Map<String, dynamic> map,
+  }) {
+    final usernameFromRow =
+        (map['username'] ?? '').toString().trim().toLowerCase();
+
+    return UserProfile(
+      id: user.id,
+      username: usernameFromRow.isEmpty
+          ? NotesLogic.defaultUsernameForUser(user)
+          : usernameFromRow,
+      avatarUrl: (map['avatar_url'] as String?)?.trim(),
+    );
+  }
+}
+
 class NotesLogic {
   NotesLogic({SupabaseClient? client}) : _client = client ?? AppSupabase.client;
 
   final SupabaseClient _client;
   static const String _authDomain = 'notesapp.dev';
+  static const String _profilesTable = 'profiles';
+  static const String _avatarsBucket = 'profile-pictures';
 
   User? get currentUser => _client.auth.currentUser;
 
@@ -53,6 +85,150 @@ class NotesLogic {
 
   static String usernameToEmail(String username) {
     return '${username.trim().toLowerCase()}@$_authDomain';
+  }
+
+  static String defaultUsernameForUser(User user) {
+    final metadataUsername =
+        (user.userMetadata?['username'] ?? '').toString().trim();
+    if (metadataUsername.isNotEmpty) return metadataUsername.toLowerCase();
+
+    final email = user.email ?? '';
+    final splitIndex = email.indexOf('@');
+    if (splitIndex <= 0) return 'user';
+    return email.substring(0, splitIndex).trim().toLowerCase();
+  }
+
+  static bool isValidUsername(String username) {
+    final normalized = username.trim();
+    final allowed = RegExp(r'^[a-zA-Z0-9_.-]{3,30}$');
+    return allowed.hasMatch(normalized);
+  }
+
+  Future<void> ensureProfileForCurrentUser({String? preferredUsername}) async {
+    final user = currentUser;
+    if (user == null) return;
+
+    final existing = await _client
+        .from(_profilesTable)
+        .select('id')
+        .eq('id', user.id)
+        .maybeSingle();
+
+    if (existing != null) return;
+
+    final fallback = (preferredUsername ?? defaultUsernameForUser(user))
+        .trim()
+        .toLowerCase();
+    await _client.from(_profilesTable).insert({
+      'id': user.id,
+      'username': fallback,
+      'avatar_url': null,
+    });
+  }
+
+  Future<UserProfile> fetchCurrentProfile() async {
+    final user = currentUser;
+    if (user == null) {
+      throw Exception('No logged-in user.');
+    }
+
+    await ensureProfileForCurrentUser();
+
+    final row = await _client
+        .from(_profilesTable)
+        .select('id,username,avatar_url')
+        .eq('id', user.id)
+        .single();
+
+    return UserProfile.fromMap(
+      user: user,
+      map: row,
+    );
+  }
+
+  Future<UserProfile> updateUsername(String username) async {
+    final user = currentUser;
+    if (user == null) {
+      throw Exception('No logged-in user.');
+    }
+
+    final normalized = username.trim().toLowerCase();
+    if (!isValidUsername(normalized)) {
+      throw Exception('Use 3-30 chars: letters, numbers, _, -, .');
+    }
+
+    final nextEmail = usernameToEmail(normalized);
+    try {
+      await _client.auth.updateUser(
+        UserAttributes(
+          email: nextEmail,
+          data: {'username': normalized},
+        ),
+      );
+    } on AuthException catch (error) {
+      final message = error.message.toLowerCase();
+      if (message.contains('already') || message.contains('duplicate')) {
+        throw Exception('Username is already taken.');
+      }
+      throw Exception(error.message);
+    }
+
+    await _client.from(_profilesTable).upsert({
+      'id': user.id,
+      'username': normalized,
+    }, onConflict: 'id');
+
+    return fetchCurrentProfile();
+  }
+
+  Future<void> updatePassword(String password) async {
+    if (password.length < 6) {
+      throw Exception('Password must be at least 6 characters.');
+    }
+
+    try {
+      await _client.auth.updateUser(UserAttributes(password: password));
+    } on AuthException catch (error) {
+      throw Exception(error.message);
+    }
+  }
+
+  Future<UserProfile> uploadProfileAvatar({
+    required Uint8List bytes,
+    required String extension,
+  }) async {
+    final user = currentUser;
+    if (user == null) {
+      throw Exception('No logged-in user.');
+    }
+
+    final normalizedExtension = extension.trim().toLowerCase();
+    final isValidExtension =
+        RegExp(r'^[a-z0-9]{2,5}$').hasMatch(normalizedExtension);
+    if (!isValidExtension) {
+      throw Exception('Unsupported file extension.');
+    }
+
+    final objectPath = '${user.id}/avatar.$normalizedExtension';
+    await _client.storage.from(_avatarsBucket).uploadBinary(
+          objectPath,
+          bytes,
+          fileOptions: const FileOptions(
+            upsert: true,
+            cacheControl: '3600',
+          ),
+        );
+
+    final timestamp = DateTime.now().toUtc().millisecondsSinceEpoch;
+    final avatarUrl =
+        '${_client.storage.from(_avatarsBucket).getPublicUrl(objectPath)}?v=$timestamp';
+
+    await _client.from(_profilesTable).upsert({
+      'id': user.id,
+      'avatar_url': avatarUrl,
+    }, onConflict: 'id');
+
+    return fetchCurrentProfile();
   }
 
   Future<List<NoteItem>> fetchNotesForCurrentUser() async {
@@ -80,7 +256,8 @@ class NotesLogic {
     final query = searchQuery.trim().toLowerCase();
 
     final filtered = notes.where((note) {
-      final matchesQuery = query.isEmpty || note.title.toLowerCase().contains(query);
+      final matchesQuery =
+          query.isEmpty || note.title.toLowerCase().contains(query);
       if (!matchesQuery) return false;
 
       switch (filter) {
@@ -158,6 +335,7 @@ class NotesLogic {
     final normalized = username.trim().toLowerCase();
     final email = usernameToEmail(normalized);
     await _client.auth.signInWithPassword(email: email, password: password);
+    await ensureProfileForCurrentUser(preferredUsername: normalized);
   }
 
   Future<void> signUpWithUsername({
@@ -174,8 +352,7 @@ class NotesLogic {
       return;
     } on AuthException catch (error) {
       final message = error.message.toLowerCase();
-      final canProceedToSignup =
-          message.contains('invalid') ||
+      final canProceedToSignup = message.contains('invalid') ||
           message.contains('credentials') ||
           message.contains('password');
 
@@ -218,6 +395,8 @@ class NotesLogic {
         throw Exception(error.message);
       }
     }
+
+    await ensureProfileForCurrentUser(preferredUsername: normalized);
   }
 
   List<NoteItem> sortNotes(List<NoteItem> notes) {
