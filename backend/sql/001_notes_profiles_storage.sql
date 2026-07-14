@@ -245,10 +245,11 @@ for delete
 using (auth.uid() = user_id);
 
 drop policy if exists "profiles_select_own" on public.profiles;
-create policy "profiles_select_own"
+drop policy if exists "profiles_select_authenticated" on public.profiles;
+create policy "profiles_select_authenticated"
 on public.profiles
 for select
-using (auth.uid() = id);
+using (auth.uid() is not null);
 
 drop policy if exists "profiles_insert_own" on public.profiles;
 create policy "profiles_insert_own"

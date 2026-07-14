@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"No backend runtime tests configured yet.\"",
-    "setup:db": "echo \"Run backend/sql/001_notes_profiles_storage.sql in Supabase SQL editor.\""
+    "setup:db": "echo \"Run backend/sql/001_notes_profiles_storage.sql then 002_social_friends_and_shared_notes.sql.\""
   },
   "keywords": [],
   "author": "",

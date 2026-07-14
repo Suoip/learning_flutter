@@ -10,6 +10,7 @@ The Notes app now depends on:
 Run this SQL in your Supabase project SQL editor:
 
 `backend/sql/001_notes_profiles_storage.sql`
+`backend/sql/002_social_friends_and_shared_notes.sql`
 
 ## Required Supabase Auth settings
 
@@ -23,3 +24,5 @@ Run this SQL in your Supabase project SQL editor:
 - Auto profile creation trigger on `auth.users` insert
 - RLS for notes/profiles (each user only touches their own data)
 - Public bucket for profile pictures with folder-based ownership policies (`<user_id>/...`)
+- Social model tables: friend requests, friendships, shared notes, likes, comments
+- RLS for social features so feed is read-only for recipients and editable by authors only
