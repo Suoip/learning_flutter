@@ -14,7 +14,19 @@ Run this SQL in your Supabase project SQL editor:
 
 ## Required Supabase Auth settings
 
-- Email confirmation should be disabled for this username/password flow, because usernames are mapped to synthetic emails (`<username>@notesapp.dev`).
+1. Auth -> Providers -> Email:
+   - Enable provider.
+   - Turn **Confirm email** ON.
+   - Configure SMTP (custom SMTP provider) so confirmation emails can be delivered to real user inboxes.
+2. Auth -> URL Configuration:
+   - Add your confirmation redirect URL to **Redirect URLs**.
+   - Use the same URL in app env as `SUPABASE_EMAIL_REDIRECT_TO`.
+3. Auth -> Templates -> Confirm signup:
+   - Keep `{{ .ConfirmationURL }}` in the template body.
+4. App flow:
+   - New registrations use real email + username.
+   - Login is email/password.
+   - Profile rows are created from username metadata.
 
 ## What this SQL config includes
 

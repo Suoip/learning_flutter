@@ -21,4 +21,12 @@ class AppSupabase {
   }
 
   static SupabaseClient get client => Supabase.instance.client;
+
+  static String? get emailRedirectTo {
+    final raw = dotenv.env['SUPABASE_EMAIL_REDIRECT_TO'];
+    if (raw == null) return null;
+    final normalized = raw.trim();
+    if (normalized.isEmpty) return null;
+    return normalized;
+  }
 }

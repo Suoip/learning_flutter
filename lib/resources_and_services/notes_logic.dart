@@ -173,18 +173,21 @@ class NotesLogic {
   NotesLogic({SupabaseClient? client}) : _client = client ?? AppSupabase.client;
 
   final SupabaseClient _client;
-  static const String _authDomain = 'notesapp.dev';
   static const String _profilesTable = 'profiles';
   static const String _avatarsBucket = 'profile-pictures';
+  static const String activationRequiredMessage =
+      'Please confirm your email to activate your account.';
 
   User? get currentUser => _client.auth.currentUser;
 
-  static String formatUpdatedTime(DateTime dateTime) {
-    return DateFormat('MMM d, h:mm a').format(dateTime.toLocal());
+  static bool isUserEmailConfirmed(User? user) {
+    if (user == null) return false;
+    final confirmedAt = user.toJson()['email_confirmed_at'];
+    return confirmedAt != null && confirmedAt.toString().trim().isNotEmpty;
   }
 
-  static String usernameToEmail(String username) {
-    return '${username.trim().toLowerCase()}@$_authDomain';
+  static String formatUpdatedTime(DateTime dateTime) {
+    return DateFormat('MMM d, h:mm a').format(dateTime.toLocal());
   }
 
   static DateTime parseTimestamp(dynamic value) {
@@ -202,9 +205,12 @@ class NotesLogic {
           message.contains('invalid credentials') ||
           message.contains('invalid') ||
           message.contains('password')) {
-        return 'Incorrect username or password. Please try again.';
+        return 'Incorrect email or password. Please try again.';
       }
       if (message.contains('already') || message.contains('duplicate')) {
+        if (message.contains('email')) {
+          return 'That email is already registered.';
+        }
         return 'That username is already taken.';
       }
       if (message.contains('confirm') || message.contains('not confirmed')) {
@@ -212,6 +218,12 @@ class NotesLogic {
       }
       if (message.contains('rate limit') || message.contains('too many')) {
         return 'Too many attempts. Please wait a moment and try again.';
+      }
+      if (message.contains('email address not authorized') ||
+          message.contains('smtp') ||
+          message.contains('email provider is disabled') ||
+          message.contains('signups not allowed')) {
+        return 'Registration email could not be sent. Please ask the app admin to finish Supabase email provider/SMTP setup.';
       }
       return 'Authentication failed. Please try again.';
     }
@@ -258,24 +270,50 @@ class NotesLogic {
     return allowed.hasMatch(normalized);
   }
 
+  static bool isValidEmail(String email) {
+    final normalized = email.trim().toLowerCase();
+    final pattern = RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$');
+    return pattern.hasMatch(normalized);
+  }
+
+  String _safeUsernameForUser(User user, {String? preferredUsername}) {
+    final preferred = (preferredUsername ?? defaultUsernameForUser(user))
+        .trim()
+        .toLowerCase();
+
+    if (isValidUsername(preferred)) return preferred;
+    return 'user_${user.id.substring(0, 8)}';
+  }
+
   Future<void> ensureProfileForCurrentUser({String? preferredUsername}) async {
     final user = currentUser;
     if (user == null) return;
 
+    final safeUsername = _safeUsernameForUser(
+      user,
+      preferredUsername: preferredUsername,
+    );
+
     final existing = await _client
         .from(_profilesTable)
-        .select('id')
+        .select('id,username')
         .eq('id', user.id)
         .maybeSingle();
 
-    if (existing != null) return;
+    if (existing != null) {
+      final currentUsername =
+          (existing['username'] ?? '').toString().trim().toLowerCase();
+      if (currentUsername == safeUsername) return;
 
-    final fallback = (preferredUsername ?? defaultUsernameForUser(user))
-        .trim()
-        .toLowerCase();
+      await _client.from(_profilesTable).update({
+        'username': safeUsername,
+      }).eq('id', user.id);
+      return;
+    }
+
     await _client.from(_profilesTable).insert({
       'id': user.id,
-      'username': fallback,
+      'username': safeUsername,
       'avatar_url': null,
     });
   }
@@ -308,13 +346,9 @@ class NotesLogic {
       throw Exception('Use 3-30 chars: letters, numbers, _, -, .');
     }
 
-    final nextEmail = usernameToEmail(normalized);
     try {
       await _client.auth.updateUser(
-        UserAttributes(
-          email: nextEmail,
-          data: {'username': normalized},
-        ),
+        UserAttributes(data: {'username': normalized}),
       );
     } on AuthException catch (error) {
       throw Exception(userMessageForError(error));
@@ -475,51 +509,89 @@ class NotesLogic {
     await _client.auth.signOut();
   }
 
-  Future<void> signInWithUsername({
-    required String username,
-    required String password,
+  Future<void> resendSignupConfirmationEmail({
+    required String email,
   }) async {
-    final normalized = username.trim().toLowerCase();
-    final email = usernameToEmail(normalized);
-    try {
-      await _client.auth.signInWithPassword(email: email, password: password);
-    } on AuthException catch (error) {
-      throw Exception(userMessageForError(error));
+    final normalized = email.trim().toLowerCase();
+    if (!isValidEmail(normalized)) {
+      throw Exception('Enter a valid email address.');
     }
-    await ensureProfileForCurrentUser(preferredUsername: normalized);
-  }
-
-  Future<void> signUpWithUsername({
-    required String username,
-    required String password,
-  }) async {
-    final normalized = username.trim().toLowerCase();
-    final email = usernameToEmail(normalized);
 
     try {
-      await signInWithUsername(username: normalized, password: password);
-      return;
-    } on Exception catch (_) {}
-
-    try {
-      await _client.auth.signUp(
-        email: email,
-        password: password,
-        data: {'username': normalized},
+      await _client.auth.resend(
+        type: OtpType.signup,
+        email: normalized,
+        emailRedirectTo: AppSupabase.emailRedirectTo,
       );
     } on AuthException catch (error) {
       throw Exception(userMessageForError(error));
     }
+  }
 
-    if (currentUser == null) {
-      try {
-        await signInWithUsername(username: normalized, password: password);
-      } on Exception catch (error) {
-        throw Exception(userMessageForError(error));
-      }
+  Future<void> signInWithEmail({
+    required String email,
+    required String password,
+  }) async {
+    final normalized = email.trim().toLowerCase();
+    if (!isValidEmail(normalized)) {
+      throw Exception('Enter a valid email address.');
     }
 
-    await ensureProfileForCurrentUser(preferredUsername: normalized);
+    try {
+      final response = await _client.auth.signInWithPassword(
+        email: normalized,
+        password: password,
+      );
+      final signedInUser = response.user ?? currentUser;
+      if (!isUserEmailConfirmed(signedInUser)) {
+        await _client.auth.signOut();
+        throw Exception(activationRequiredMessage);
+      }
+    } on AuthException catch (error) {
+      throw Exception(userMessageForError(error));
+    }
+  }
+
+  Future<bool> signUpWithUsername({
+    required String username,
+    required String email,
+    required String password,
+  }) async {
+    final normalized = username.trim().toLowerCase();
+    final normalizedEmail = email.trim().toLowerCase();
+
+    if (!isValidUsername(normalized)) {
+      throw Exception('Use 3-30 chars: letters, numbers, _, -, .');
+    }
+    if (!isValidEmail(normalizedEmail)) {
+      throw Exception('Enter a valid email address.');
+    }
+
+    try {
+      final response = await _client.auth.signUp(
+        email: normalizedEmail,
+        password: password,
+        data: {'username': normalized},
+        emailRedirectTo: AppSupabase.emailRedirectTo,
+      );
+
+      final signedUpUser = response.user ?? currentUser;
+      if (!isUserEmailConfirmed(signedUpUser)) {
+        if (response.session != null || currentUser != null) {
+          await _client.auth.signOut();
+        }
+        return false;
+      }
+
+      if (response.session != null || currentUser != null) {
+        await ensureProfileForCurrentUser(preferredUsername: normalized);
+        return true;
+      }
+
+      return false;
+    } on AuthException catch (error) {
+      throw Exception(userMessageForError(error));
+    }
   }
 
   List<NoteItem> sortNotes(List<NoteItem> notes) {

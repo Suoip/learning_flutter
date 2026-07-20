@@ -78,6 +78,7 @@ update public.profiles
 set
   username = coalesce(
     nullif(username, ''),
+    nullif(lower(trim(coalesce((select raw_user_meta_data->>'username' from auth.users where id = profiles.id), ''))), ''),
     lower(split_part(coalesce((select email from auth.users where id = profiles.id), ''), '@', 1)),
     'user_' || left(id::text, 8)
   ),
@@ -198,7 +199,10 @@ as $$
 declare
   fallback_username text;
 begin
-  fallback_username := lower(split_part(coalesce(new.email, ''), '@', 1));
+  fallback_username := lower(trim(coalesce(new.raw_user_meta_data->>'username', '')));
+  if fallback_username = '' then
+    fallback_username := lower(split_part(coalesce(new.email, ''), '@', 1));
+  end if;
   if fallback_username = '' then
     fallback_username := 'user_' || left(new.id::text, 8);
   end if;

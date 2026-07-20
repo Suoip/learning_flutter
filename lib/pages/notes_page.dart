@@ -33,15 +33,27 @@ class _NotesPageState extends State<NotesPage> {
         _searchQuery = _searchController.text.trim().toLowerCase();
       });
     });
-    _loadProfile();
-    _loadNotes();
-    _loadPendingRequestsBadge();
+    _bootstrapForCurrentUser();
   }
 
   @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+
+  Future<void> _bootstrapForCurrentUser() async {
+    final user = _logic.currentUser;
+    if (user != null && !NotesLogic.isUserEmailConfirmed(user)) {
+      await _logout();
+      return;
+    }
+
+    await Future.wait([
+      _loadProfile(),
+      _loadNotes(),
+      _loadPendingRequestsBadge(),
+    ]);
   }
 
   Future<void> _loadNotes() async {
@@ -113,6 +125,12 @@ class _NotesPageState extends State<NotesPage> {
   }
 
   Future<void> _onAuthenticated() async {
+    final user = _logic.currentUser;
+    if (!NotesLogic.isUserEmailConfirmed(user)) {
+      await _logic.signOut();
+      throw Exception(NotesLogic.activationRequiredMessage);
+    }
+
     await Future.wait([
       _loadNotes(),
       _loadProfile(),
@@ -608,10 +626,16 @@ class _NotesPageState extends State<NotesPage> {
 
   @override
   Widget build(BuildContext context) {
-    final isLoggedIn = _logic.currentUser != null;
+    final user = _logic.currentUser;
+    final isLoggedIn = user != null;
     if (!isLoggedIn) {
       return _NotesAuthPage(
         onAuthenticated: _onAuthenticated,
+      );
+    }
+    if (!NotesLogic.isUserEmailConfirmed(user)) {
+      return _NotesActivationRequiredPage(
+        onSignOut: _logout,
       );
     }
 
@@ -747,6 +771,55 @@ class _NotesPageState extends State<NotesPage> {
   }
 }
 
+class _NotesActivationRequiredPage extends StatelessWidget {
+  const _NotesActivationRequiredPage({required this.onSignOut});
+
+  final Future<void> Function() onSignOut;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    return Scaffold(
+      body: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 420),
+            child: Card(
+              margin: const EdgeInsets.symmetric(horizontal: 20),
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.mark_email_unread_outlined,
+                      size: 40,
+                      color: cs.primary,
+                    ),
+                    const SizedBox(height: 12),
+                    const Text(
+                      NotesLogic.activationRequiredMessage,
+                      textAlign: TextAlign.center,
+                      style:
+                          TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                    ),
+                    const SizedBox(height: 16),
+                    FilledButton(
+                      onPressed: onSignOut,
+                      child: const Text('Back to login'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _NotesAuthPage extends StatefulWidget {
   const _NotesAuthPage({required this.onAuthenticated});
 
@@ -760,16 +833,22 @@ class _NotesAuthPageState extends State<_NotesAuthPage> {
   final NotesLogic _logic = NotesLogic();
   final _formKey = GlobalKey<FormState>();
   final _usernameController = TextEditingController();
+  final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
 
   bool _isRegister = false;
   bool _loading = false;
   String? _errorText;
+  String? _infoText;
+  String? _pendingConfirmationEmail;
 
   @override
   void dispose() {
     _usernameController.dispose();
+    _emailController.dispose();
     _passwordController.dispose();
+    _confirmPasswordController.dispose();
     super.dispose();
   }
 
@@ -780,16 +859,49 @@ class _NotesAuthPageState extends State<_NotesAuthPage> {
     setState(() {
       _loading = true;
       _errorText = null;
+      _infoText = null;
+      if (_isRegister) {
+        _pendingConfirmationEmail = null;
+      }
     });
 
     final username = _usernameController.text.trim().toLowerCase();
+    final email = _emailController.text.trim().toLowerCase();
     final password = _passwordController.text;
 
     try {
       if (_isRegister) {
-        await _logic.signUpWithUsername(username: username, password: password);
+        final confirmPassword = _confirmPasswordController.text;
+        if (password != confirmPassword) {
+          setState(() {
+            _loading = false;
+            _errorText = 'Passwords do not match.';
+          });
+          return;
+        }
+
+        final authenticated = await _logic.signUpWithUsername(
+          username: username,
+          email: email,
+          password: password,
+        );
+
+        if (!mounted) return;
+        if (!authenticated) {
+          setState(() {
+            _loading = false;
+            _isRegister = false;
+            _passwordController.clear();
+            _confirmPasswordController.clear();
+            _pendingConfirmationEmail = email;
+            _infoText =
+                'Account created. Check your email to confirm it, then log in with your email.';
+          });
+          return;
+        }
       } else {
-        await _logic.signInWithUsername(username: username, password: password);
+        await _logic.signInWithEmail(email: email, password: password);
+        _pendingConfirmationEmail = null;
       }
 
       await widget.onAuthenticated();
@@ -804,6 +916,42 @@ class _NotesAuthPageState extends State<_NotesAuthPage> {
         _errorText = NotesLogic.userMessageForError(
           error,
           fallback: 'Could not complete authentication.',
+        );
+      });
+    }
+  }
+
+  Future<void> _resendConfirmationEmail() async {
+    final email = (_pendingConfirmationEmail ?? '').trim().toLowerCase();
+    if (!NotesLogic.isValidEmail(email)) {
+      setState(() {
+        _errorText = 'Register first to enable email confirmation resend.';
+        _infoText = null;
+      });
+      return;
+    }
+
+    setState(() {
+      _loading = true;
+      _errorText = null;
+      _infoText = null;
+    });
+
+    try {
+      await _logic.resendSignupConfirmationEmail(email: email);
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _infoText =
+            'Confirmation email sent to $email. Check your inbox and spam folder.';
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _errorText = NotesLogic.userMessageForError(
+          error,
+          fallback: 'Could not resend confirmation email.',
         );
       });
     }
@@ -860,7 +1008,7 @@ class _NotesAuthPageState extends State<_NotesAuthPage> {
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            'Sign in or create an account with username and password.',
+                            'Sign in with email, or register with username, email, and password.',
                             textAlign: TextAlign.center,
                             style: TextStyle(color: cs.onSurfaceVariant),
                           ),
@@ -877,28 +1025,57 @@ class _NotesAuthPageState extends State<_NotesAuthPage> {
                               setState(() {
                                 _isRegister = value.first;
                                 _errorText = null;
+                                _infoText = null;
                               });
                             },
                           ),
                           const SizedBox(height: 16),
+                          if (_isRegister) ...[
+                            TextFormField(
+                              controller: _usernameController,
+                              textInputAction: TextInputAction.next,
+                              autocorrect: false,
+                              decoration: InputDecoration(
+                                labelText: 'Username',
+                                hintText: 'e.g. john_doe123',
+                                prefixIcon:
+                                    const Icon(Icons.person_outline_rounded),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                              ),
+                              validator: (value) {
+                                final input = value?.trim() ?? '';
+                                if (input.isEmpty) {
+                                  return 'Username is required';
+                                }
+                                if (!NotesLogic.isValidUsername(input)) {
+                                  return 'Use 3-30 chars: letters, numbers, _, -, .';
+                                }
+                                return null;
+                              },
+                            ),
+                            const SizedBox(height: 12),
+                          ],
                           TextFormField(
-                            controller: _usernameController,
+                            controller: _emailController,
+                            keyboardType: TextInputType.emailAddress,
                             textInputAction: TextInputAction.next,
                             autocorrect: false,
                             decoration: InputDecoration(
-                              labelText: 'Username',
-                              hintText: 'e.g. John_Doe123',
+                              labelText: 'Email',
+                              hintText: 'you@example.com',
                               prefixIcon:
-                                  const Icon(Icons.person_outline_rounded),
+                                  const Icon(Icons.alternate_email_rounded),
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(14),
                               ),
                             ),
                             validator: (value) {
                               final input = value?.trim() ?? '';
-                              if (input.isEmpty) return 'Username is required';
-                              if (!NotesLogic.isValidUsername(input)) {
-                                return 'Use 3-30 chars: letters, numbers, _, -, .';
+                              if (input.isEmpty) return 'Email is required';
+                              if (!NotesLogic.isValidEmail(input)) {
+                                return 'Enter a valid email address';
                               }
                               return null;
                             },
@@ -907,8 +1084,12 @@ class _NotesAuthPageState extends State<_NotesAuthPage> {
                           TextFormField(
                             controller: _passwordController,
                             obscureText: true,
-                            textInputAction: TextInputAction.done,
-                            onFieldSubmitted: (_) => _submit(),
+                            textInputAction: _isRegister
+                                ? TextInputAction.next
+                                : TextInputAction.done,
+                            onFieldSubmitted: (_) {
+                              if (!_isRegister) _submit();
+                            },
                             decoration: InputDecoration(
                               labelText: 'Password',
                               prefixIcon:
@@ -925,6 +1106,50 @@ class _NotesAuthPageState extends State<_NotesAuthPage> {
                               return null;
                             },
                           ),
+                          if (_isRegister) ...[
+                            const SizedBox(height: 12),
+                            TextFormField(
+                              controller: _confirmPasswordController,
+                              obscureText: true,
+                              textInputAction: TextInputAction.done,
+                              onFieldSubmitted: (_) => _submit(),
+                              decoration: InputDecoration(
+                                labelText: 'Confirm password',
+                                prefixIcon:
+                                    const Icon(Icons.lock_reset_rounded),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                              ),
+                              validator: (value) {
+                                if (!_isRegister) return null;
+                                final input = value ?? '';
+                                if (input.isEmpty) {
+                                  return 'Please confirm your password';
+                                }
+                                if (input != _passwordController.text) {
+                                  return 'Passwords do not match';
+                                }
+                                return null;
+                              },
+                            ),
+                          ],
+                          if (_infoText != null) ...[
+                            const SizedBox(height: 12),
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.blue.shade50,
+                                borderRadius: BorderRadius.circular(12),
+                                border:
+                                    Border.all(color: Colors.blue.shade100),
+                              ),
+                              child: Text(
+                                _infoText!,
+                                style: TextStyle(color: Colors.blue.shade700),
+                              ),
+                            ),
+                          ],
                           if (_errorText != null) ...[
                             const SizedBox(height: 12),
                             Container(
@@ -956,6 +1181,13 @@ class _NotesAuthPageState extends State<_NotesAuthPage> {
                                 : Text(
                                     _isRegister ? 'Create Account' : 'Login'),
                           ),
+                          if (_pendingConfirmationEmail != null) ...[
+                            const SizedBox(height: 8),
+                            TextButton(
+                              onPressed: _loading ? null : _resendConfirmationEmail,
+                              child: const Text('Resend confirmation email'),
+                            ),
+                          ],
                         ],
                       ),
                     ),
