@@ -1,12 +1,10 @@
 # learning_flutter
 
-A new Flutter project.
+A Flutter notes app with social features (profiles, friends, shared notes, likes, and comments). Used for learning Flutter development.
 
 ## Getting Started
 
-This project is a starting point for a Flutter application.
-
-I'll be making my mini-projects and tracking my learning progress in this repo.
+This repo contains mini-projects tracking Flutter learning progress, starting with a notes app with social capabilities.
 
 ## Notes app backend setup
 
