@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../resources_and_services/notes_logic.dart';
-import 'profile_avatar.dart';
+import 'password_form_section.dart';
+import 'profile_avatar_section.dart';
+import 'username_form_section.dart';
 
 class NotesProfilePage extends StatefulWidget {
   const NotesProfilePage({super.key});
@@ -182,10 +184,8 @@ class _NotesProfilePageState extends State<NotesProfilePage> {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-
     return Scaffold(
-      backgroundColor: cs.surfaceContainerLowest,
+      backgroundColor: Theme.of(context).colorScheme.surfaceContainerLowest,
       appBar: AppBar(
         title: const Text('Profile'),
         scrolledUnderElevation: 0,
@@ -213,189 +213,25 @@ class _NotesProfilePageState extends State<NotesProfilePage> {
                     ),
                     const SizedBox(height: 14),
                   ],
-                  Card(
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
-                      side: BorderSide(
-                        color: cs.outlineVariant.withValues(alpha: 0.5),
-                      ),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(18),
-                      child: Column(
-                        children: [
-                          ProfileAvatar(
-                            username: _profile?.username,
-                            avatarUrl: _profile?.avatarUrl,
-                            radius: 44,
-                          ),
-                          const SizedBox(height: 12),
-                          Text(
-                            '@${_profile?.username ?? ''}',
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          OutlinedButton.icon(
-                            onPressed:
-                                _uploadingAvatar ? null : _pickAndUploadAvatar,
-                            icon: _uploadingAvatar
-                                ? const SizedBox(
-                                    width: 16,
-                                    height: 16,
-                                    child: CircularProgressIndicator(
-                                        strokeWidth: 2),
-                                  )
-                                : const Icon(Icons.photo_camera_outlined),
-                            label: const Text('Change profile picture'),
-                          ),
-                        ],
-                      ),
-                    ),
+                  ProfileAvatarSection(
+                    profile: _profile,
+                    uploadingAvatar: _uploadingAvatar,
+                    onPickAvatar: _pickAndUploadAvatar,
                   ),
                   const SizedBox(height: 14),
-                  Card(
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
-                      side: BorderSide(
-                        color: cs.outlineVariant.withValues(alpha: 0.5),
-                      ),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
-                      child: Form(
-                        key: _usernameFormKey,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Username',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                            const SizedBox(height: 10),
-                            TextFormField(
-                              controller: _usernameController,
-                              decoration: InputDecoration(
-                                labelText: 'Username',
-                                prefixIcon:
-                                    const Icon(Icons.person_outline_rounded),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                ),
-                              ),
-                              validator: (value) {
-                                final input = value?.trim() ?? '';
-                                if (input.isEmpty) {
-                                  return 'Username is required';
-                                }
-                                if (!NotesLogic.isValidUsername(input)) {
-                                  return 'Use 3-30 chars: letters, numbers, _, -, .';
-                                }
-                                return null;
-                              },
-                            ),
-                            const SizedBox(height: 12),
-                            FilledButton(
-                              onPressed: _savingUsername ? null : _saveUsername,
-                              child: _savingUsername
-                                  ? const SizedBox(
-                                      width: 16,
-                                      height: 16,
-                                      child: CircularProgressIndicator(
-                                          strokeWidth: 2),
-                                    )
-                                  : const Text('Save username'),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
+                  UsernameFormSection(
+                    formKey: _usernameFormKey,
+                    controller: _usernameController,
+                    saving: _savingUsername,
+                    onSave: _saveUsername,
                   ),
                   const SizedBox(height: 14),
-                  Card(
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
-                      side: BorderSide(
-                        color: cs.outlineVariant.withValues(alpha: 0.5),
-                      ),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
-                      child: Form(
-                        key: _passwordFormKey,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Change password',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                            const SizedBox(height: 10),
-                            TextFormField(
-                              controller: _passwordController,
-                              obscureText: true,
-                              decoration: InputDecoration(
-                                labelText: 'New password',
-                                prefixIcon:
-                                    const Icon(Icons.lock_outline_rounded),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                ),
-                              ),
-                              validator: (value) {
-                                final input = value ?? '';
-                                if (input.length < 6) {
-                                  return 'Password must be at least 6 characters';
-                                }
-                                return null;
-                              },
-                            ),
-                            const SizedBox(height: 10),
-                            TextFormField(
-                              controller: _confirmPasswordController,
-                              obscureText: true,
-                              decoration: InputDecoration(
-                                labelText: 'Confirm new password',
-                                prefixIcon:
-                                    const Icon(Icons.lock_reset_outlined),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                ),
-                              ),
-                              validator: (value) {
-                                if ((value ?? '') != _passwordController.text) {
-                                  return 'Passwords do not match';
-                                }
-                                return null;
-                              },
-                            ),
-                            const SizedBox(height: 12),
-                            FilledButton(
-                              onPressed: _savingPassword ? null : _savePassword,
-                              child: _savingPassword
-                                  ? const SizedBox(
-                                      width: 16,
-                                      height: 16,
-                                      child: CircularProgressIndicator(
-                                          strokeWidth: 2),
-                                    )
-                                  : const Text('Update password'),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
+                  PasswordFormSection(
+                    formKey: _passwordFormKey,
+                    passwordController: _passwordController,
+                    confirmPasswordController: _confirmPasswordController,
+                    saving: _savingPassword,
+                    onSave: _savePassword,
                   ),
                 ],
               ),
