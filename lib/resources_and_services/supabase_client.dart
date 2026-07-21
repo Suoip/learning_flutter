@@ -1,19 +1,16 @@
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AppSupabase {
   AppSupabase._();
 
   static Future<void> initialize() async {
-    await dotenv.load(fileName: '.env');
+    const url = String.fromEnvironment('SUPABASE_URL');
+    const anonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
 
-    final url = dotenv.env['SUPABASE_URL'];
-    final anonKey = dotenv.env['SUPABASE_ANON_KEY'];
-
-    if (url == null || url.isEmpty || anonKey == null || anonKey.isEmpty) {
+    if (url.isEmpty || anonKey.isEmpty) {
       throw Exception(
-        'Missing SUPABASE_URL or SUPABASE_ANON_KEY in .env. '
-        'Copy .env.example to .env and fill in your values.',
+        'Missing SUPABASE_URL or SUPABASE_ANON_KEY. '
+        'Run with --dart-define-from-file=env.json (copy env.example.json to env.json and fill in your values).',
       );
     }
 
@@ -23,8 +20,7 @@ class AppSupabase {
   static SupabaseClient get client => Supabase.instance.client;
 
   static String? get emailRedirectTo {
-    final raw = dotenv.env['SUPABASE_EMAIL_REDIRECT_TO'];
-    if (raw == null) return null;
+    const raw = String.fromEnvironment('SUPABASE_EMAIL_REDIRECT_TO');
     final normalized = raw.trim();
     if (normalized.isEmpty) return null;
     return normalized;
