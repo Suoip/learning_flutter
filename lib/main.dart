@@ -12,8 +12,6 @@ Future<void> main() async {
   runApp(const LearningFlutterApp());
 }
 
-// void main() => runApp(const LearningFlutterApp());
-
 class LearningFlutterApp extends StatelessWidget {
   const LearningFlutterApp({super.key});
 

@@ -48,4 +48,10 @@ build-apk:
 	python -c "import pathlib, sys; sys.exit(0) if pathlib.Path('$(ENV_FILE)').is_file() else sys.exit('ERROR: $(ENV_FILE) not found. Copy env.example.json to $(ENV_FILE) and fill in your values.')"
 	flutter build apk --release --dart-define-from-file=$(ENV_FILE)
 
-.PHONY: deploy-web build-apk
+# Static analysis + unit tests. Mirrors what the CI workflow runs, so you can
+# reproduce a CI failure locally before pushing.
+test:
+	flutter analyze
+	flutter test
+
+.PHONY: deploy-web build-apk test
