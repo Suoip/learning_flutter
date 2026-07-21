@@ -429,7 +429,7 @@ class NotesLogic {
     return sortNotes(notes);
   }
 
-  List<NoteItem> filterNotes({
+  static List<NoteItem> filterNotes({
     required List<NoteItem> notes,
     required String searchQuery,
     required NoteQuickFilter filter,
@@ -594,7 +594,7 @@ class NotesLogic {
     }
   }
 
-  List<NoteItem> sortNotes(List<NoteItem> notes) {
+  static List<NoteItem> sortNotes(List<NoteItem> notes) {
     final sorted = [...notes];
     sorted.sort((a, b) {
       if (a.isPinned != b.isPinned) {
