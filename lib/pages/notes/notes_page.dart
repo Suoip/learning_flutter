@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 
 import '../../resources_and_services/notes_logic.dart';
 import 'note_editor_page.dart';
+import 'note_list_tile.dart';
 import 'notes_activation_required_page.dart';
 import 'notes_auth_page.dart';
 import 'notes_profile_page.dart';
 import 'notes_social_page.dart';
+import 'notes_toolbar.dart';
 import 'profile_avatar.dart';
 
 class NotesPage extends StatefulWidget {
@@ -385,30 +387,6 @@ class _NotesPageState extends State<NotesPage> {
     });
   }
 
-  Widget _filterChip({
-    required NoteQuickFilter filter,
-    required String label,
-    required IconData icon,
-  }) {
-    final selected = _activeFilter == filter;
-    return ChoiceChip(
-      label: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 16),
-          const SizedBox(width: 6),
-          Text(label),
-        ],
-      ),
-      selected: selected,
-      onSelected: (_) {
-        setState(() {
-          _activeFilter = filter;
-        });
-      },
-    );
-  }
-
   Widget _buildNotesBody(List<NoteItem> notes) {
     if (_loadingNotes) {
       return const Center(child: CircularProgressIndicator());
@@ -473,156 +451,17 @@ class _NotesPageState extends State<NotesPage> {
       separatorBuilder: (_, __) => const SizedBox(height: 12),
       itemBuilder: (context, index) {
         final note = notes[index];
-        final preview = note.content.trim().isEmpty
-            ? 'No additional text'
-            : note.content.trim().replaceAll('\n', ' ');
-        final updatedText = NotesLogic.formatUpdatedTime(note.updatedAt);
-        final isPublished = _publishedNoteIds.contains(note.id);
-        final cs = Theme.of(context).colorScheme;
-
-        return Dismissible(
-          key: ValueKey(note.id),
-          direction: DismissDirection.endToStart,
-          background: Container(
-            alignment: Alignment.centerRight,
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            decoration: BoxDecoration(
-              color: Colors.red.shade400,
-              borderRadius: BorderRadius.circular(18),
-            ),
-            child:
-                const Icon(Icons.delete_outline_rounded, color: Colors.white),
-          ),
-          confirmDismiss: (_) async {
+        return NoteListTile(
+          note: note,
+          isPublished: _publishedNoteIds.contains(note.id),
+          onTap: () => _openNote(note),
+          onToggleFavorite: () => _toggleFavorite(note),
+          onTogglePin: () => _togglePin(note),
+          onTogglePublish: () => _togglePublish(note),
+          onConfirmDismiss: () async {
             await _deleteNote(note);
             return false;
           },
-          child: Card(
-            elevation: 0,
-            color: cs.surface,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(18),
-              side:
-                  BorderSide(color: cs.outlineVariant.withValues(alpha: 0.55)),
-            ),
-            child: InkWell(
-              borderRadius: BorderRadius.circular(18),
-              onTap: () => _openNote(note),
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 14, 8, 14),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Row(
-                            children: [
-                              if (note.isPinned) ...[
-                                const Icon(
-                                  Icons.push_pin_rounded,
-                                  size: 16,
-                                  color: Colors.deepOrange,
-                                ),
-                                const SizedBox(width: 6),
-                              ],
-                              Expanded(
-                                child: Text(
-                                  note.title,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    fontSize: 17,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        IconButton(
-                          tooltip: note.isFavorite ? 'Unfavorite' : 'Favorite',
-                          onPressed: () => _toggleFavorite(note),
-                          icon: Icon(
-                            note.isFavorite
-                                ? Icons.star_rounded
-                                : Icons.star_outline_rounded,
-                            color: note.isFavorite
-                                ? Colors.amber.shade700
-                                : cs.onSurfaceVariant,
-                          ),
-                        ),
-                        IconButton(
-                          tooltip: note.isPinned ? 'Unpin' : 'Pin',
-                          onPressed: () => _togglePin(note),
-                          icon: Icon(
-                            note.isPinned
-                                ? Icons.push_pin_rounded
-                                : Icons.push_pin_outlined,
-                            color: note.isPinned
-                                ? Colors.deepOrange
-                                : cs.onSurfaceVariant,
-                          ),
-                        ),
-                        IconButton(
-                          tooltip: isPublished
-                              ? 'Unpublish from friends'
-                              : 'Publish to friends',
-                          onPressed: () => _togglePublish(note),
-                          icon: Icon(
-                            isPublished
-                                ? Icons.public_rounded
-                                : Icons.public_outlined,
-                            color: isPublished
-                                ? Colors.teal.shade600
-                                : cs.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ),
-                    Text(
-                      updatedText,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: cs.onSurfaceVariant,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      preview,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(color: cs.onSurfaceVariant, height: 1.3),
-                    ),
-                    if (isPublished) ...[
-                      const SizedBox(height: 8),
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: cs.tertiaryContainer,
-                            borderRadius: BorderRadius.circular(999),
-                          ),
-                          child: Text(
-                            'Shared with friends',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color: cs.onTertiaryContainer,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-          ),
         );
       },
     );
@@ -693,74 +532,15 @@ class _NotesPageState extends State<NotesPage> {
       body: SafeArea(
         child: Column(
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
-              child: Column(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: cs.surface,
-                      borderRadius: BorderRadius.circular(18),
-                      border: Border.all(
-                          color: cs.outlineVariant.withValues(alpha: 0.55)),
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: _searchController,
-                            decoration: InputDecoration(
-                              hintText: 'Search by title',
-                              prefixIcon: const Icon(Icons.search_rounded),
-                              filled: true,
-                              fillColor: cs.surfaceContainerHighest
-                                  .withValues(alpha: 0.45),
-                              contentPadding:
-                                  const EdgeInsets.symmetric(horizontal: 14),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(14),
-                                borderSide: BorderSide.none,
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        FilledButton.icon(
-                          onPressed: _createAndOpenNote,
-                          icon: const Icon(Icons.add_rounded),
-                          label: const Text('New'),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: [
-                        _filterChip(
-                          filter: NoteQuickFilter.all,
-                          label: 'All',
-                          icon: Icons.view_agenda_outlined,
-                        ),
-                        const SizedBox(width: 8),
-                        _filterChip(
-                          filter: NoteQuickFilter.pinned,
-                          label: 'Pinned',
-                          icon: Icons.push_pin_outlined,
-                        ),
-                        const SizedBox(width: 8),
-                        _filterChip(
-                          filter: NoteQuickFilter.favorites,
-                          label: 'Favorites',
-                          icon: Icons.star_border_rounded,
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
+            NotesToolbar(
+              searchController: _searchController,
+              activeFilter: _activeFilter,
+              onFilterChanged: (filter) {
+                setState(() {
+                  _activeFilter = filter;
+                });
+              },
+              onCreateNote: _createAndOpenNote,
             ),
             Expanded(
               child: RefreshIndicator(
