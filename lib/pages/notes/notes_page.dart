@@ -194,7 +194,7 @@ class _NotesPageState extends State<NotesPage> {
   }
 
   List<NoteItem> get _filteredNotes {
-    return _logic.filterNotes(
+    return NotesLogic.filterNotes(
       notes: _notes,
       searchQuery: _searchQuery,
       filter: _activeFilter,
