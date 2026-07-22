@@ -51,6 +51,7 @@ build-apk:
 # Static analysis + unit tests. Mirrors what the CI workflow runs, so you can
 # reproduce a CI failure locally before pushing.
 test:
+	dart format --output=none --set-exit-if-changed .
 	flutter analyze
 	flutter test
 
