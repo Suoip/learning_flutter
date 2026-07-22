@@ -212,6 +212,16 @@ class NotesLogic {
     String fallback = 'Something went wrong. Please try again.',
   }) {
     if (error is AuthException) {
+      // Checked before the message-based matches below: Supabase's own
+      // wording for this ("New password should be different from the old
+      // password.") contains "password" too and would otherwise be
+      // misreported as a login failure. `code` is Supabase's own stable
+      // error identifier for this condition - more robust than matching
+      // on message text, which is just prose meant for logging.
+      if (error.code == 'same_password') {
+        return 'Your new password must be different from your current password.';
+      }
+
       final message = error.message.toLowerCase();
       if (message.contains('invalid login') ||
           message.contains('invalid credentials') ||
@@ -550,6 +560,25 @@ class NotesLogic {
     }
   }
 
+  /// Sends a password-reset email. Like Supabase's signup flow, this never
+  /// reveals whether the email actually has an account - it succeeds
+  /// regardless, so the UI should show a neutral message either way.
+  Future<void> sendPasswordResetEmail({required String email}) async {
+    final normalized = email.trim().toLowerCase();
+    if (!isValidEmail(normalized)) {
+      throw Exception('Enter a valid email address.');
+    }
+
+    try {
+      await _client.auth.resetPasswordForEmail(
+        normalized,
+        redirectTo: AppSupabase.emailRedirectTo,
+      );
+    } on AuthException catch (error) {
+      throw Exception(userMessageForError(error));
+    }
+  }
+
   Future<void> signInWithEmail({
     required String email,
     required String password,
@@ -596,6 +625,21 @@ class NotesLogic {
         data: {'username': normalized},
         emailRedirectTo: AppSupabase.emailRedirectTo,
       );
+
+      // Supabase deliberately obscures whether an email is already
+      // registered, to prevent account-enumeration attacks: for an
+      // existing, already-confirmed account it returns a user with an
+      // empty `identities` list and no session, rather than an error.
+      // This is the documented way to detect that case client-side -
+      // without it, this would silently fall through to the "check your
+      // email to confirm" path below even though no account was created
+      // and no email was sent.
+      if (response.user?.identities?.isEmpty ?? false) {
+        throw Exception(
+          'That email is already registered. Try logging in, or use '
+          '"Forgot password" if you don\'t remember your password.',
+        );
+      }
 
       final signedUpUser = response.user ?? currentUser;
       if (!isUserEmailConfirmed(signedUpUser)) {
