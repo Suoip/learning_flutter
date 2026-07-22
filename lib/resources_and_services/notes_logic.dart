@@ -874,6 +874,30 @@ class NotesLogic {
     }
   }
 
+  Future<void> cancelFriendRequest(String requestId) async {
+    final user = currentUser;
+    if (user == null) {
+      throw Exception('You are not logged in.');
+    }
+
+    final request = await _client
+        .from('friend_requests')
+        .select('id,sender_id,status')
+        .eq('id', requestId)
+        .single();
+
+    final senderId = request['sender_id'].toString();
+    final status = request['status'].toString();
+
+    if (senderId != user.id || status != 'pending') {
+      throw Exception('This request can no longer be cancelled.');
+    }
+
+    await _client
+        .from('friend_requests')
+        .update({'status': 'cancelled'}).eq('id', requestId);
+  }
+
   Future<List<FriendItem>> fetchFriends() async {
     final user = currentUser;
     if (user == null) return [];
@@ -904,6 +928,14 @@ class NotesLogic {
         createdAt: parseTimestamp(row['created_at']),
       );
     }).toList();
+  }
+
+  Future<void> removeFriend(String friendshipId) async {
+    final user = currentUser;
+    if (user == null) {
+      throw Exception('You are not logged in.');
+    }
+    await _client.from('friendships').delete().eq('id', friendshipId);
   }
 
   Future<int> fetchIncomingRequestCount() async {

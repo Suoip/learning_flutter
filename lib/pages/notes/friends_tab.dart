@@ -16,6 +16,8 @@ class FriendsTab extends StatelessWidget {
     required this.onSearch,
     required this.onSendRequest,
     required this.onRespondRequest,
+    required this.onCancelRequest,
+    required this.onRemoveFriend,
     required this.onRefresh,
   });
 
@@ -29,6 +31,8 @@ class FriendsTab extends StatelessWidget {
   final VoidCallback onSearch;
   final ValueChanged<String> onSendRequest;
   final void Function(String requestId, bool accept) onRespondRequest;
+  final ValueChanged<String> onCancelRequest;
+  final ValueChanged<FriendItem> onRemoveFriend;
   final Future<void> Function() onRefresh;
 
   @override
@@ -186,8 +190,12 @@ class FriendsTab extends StatelessWidget {
               spacing: 8,
               runSpacing: 8,
               children: outgoingRequests
-                  .map((request) =>
-                      Chip(label: Text('@${request.counterpart.username}')))
+                  .map((request) => Chip(
+                        label: Text('@${request.counterpart.username}'),
+                        deleteIcon: const Icon(Icons.close, size: 18),
+                        deleteButtonTooltipMessage: 'Cancel request',
+                        onDeleted: () => onCancelRequest(request.id),
+                      ))
                   .toList(),
             ),
           const SizedBox(height: 14),
@@ -213,6 +221,11 @@ class FriendsTab extends StatelessWidget {
                 title: Text('@${friend.friend.username}'),
                 subtitle: Text(
                   'Friends since ${NotesLogic.formatUpdatedTime(friend.createdAt)}',
+                ),
+                trailing: IconButton(
+                  icon: const Icon(Icons.person_remove_outlined),
+                  tooltip: 'Remove friend',
+                  onPressed: () => onRemoveFriend(friend),
                 ),
               );
             }),

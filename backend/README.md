@@ -11,6 +11,7 @@ Run this SQL in your Supabase project SQL editor:
 
 `backend/sql/001_notes_profiles_storage.sql`
 `backend/sql/002_social_friends_and_shared_notes.sql`
+`backend/sql/003_friendships_delete_policy.sql`
 
 ## Required Supabase Auth settings
 
@@ -38,3 +39,4 @@ Run this SQL in your Supabase project SQL editor:
 - Public bucket for profile pictures with folder-based ownership policies (`<user_id>/...`)
 - Social model tables: friend requests, friendships, shared notes, likes, comments
 - RLS for social features so feed is read-only for recipients and editable by authors only
+- RLS delete policy so either member of a friendship can unfriend (remove) it
