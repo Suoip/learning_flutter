@@ -218,6 +218,26 @@ void main() {
           'Authentication failed. Please try again.',
         );
       });
+
+      test(
+          'maps a same-as-old-password rejection (code: same_password) to '
+          'its own message, not a login failure', () {
+        // Regression guard: Supabase's message text for this ("New
+        // password should be different from the old password.") contains
+        // the word "password", like a real login failure would, but is a
+        // completely different situation and must not be reported as
+        // "incorrect email or password". Matching on `code` rather than
+        // the message avoids that entirely.
+        expect(
+          NotesLogic.userMessageForError(
+            const AuthException(
+              'New password should be different from the old password.',
+              code: 'same_password',
+            ),
+          ),
+          'Your new password must be different from your current password.',
+        );
+      });
     });
 
     group('PostgrestException', () {

@@ -139,6 +139,97 @@ class _NotesAuthPageState extends State<NotesAuthPage> {
     }
   }
 
+  Future<void> _showForgotPasswordDialog() async {
+    final emailController = TextEditingController(text: _emailController.text);
+    bool sending = false;
+    String? dialogError;
+
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Reset your password'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    "Enter your account email and we'll send you a link "
+                    'to reset your password.',
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: emailController,
+                    keyboardType: TextInputType.emailAddress,
+                    autofocus: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Email',
+                      hintText: 'you@example.com',
+                    ),
+                  ),
+                  if (dialogError != null) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      dialogError!,
+                      style: TextStyle(color: Colors.red.shade700),
+                    ),
+                  ],
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed:
+                      sending ? null : () => Navigator.of(dialogContext).pop(),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  onPressed: sending
+                      ? null
+                      : () async {
+                          setDialogState(() {
+                            sending = true;
+                            dialogError = null;
+                          });
+                          try {
+                            await _logic.sendPasswordResetEmail(
+                              email: emailController.text,
+                            );
+                            if (!dialogContext.mounted) return;
+                            Navigator.of(dialogContext).pop();
+                            if (!mounted) return;
+                            setState(() {
+                              _errorText = null;
+                              _infoText = 'If an account exists for that '
+                                  'email, a reset link has been sent.';
+                            });
+                          } catch (error) {
+                            setDialogState(() {
+                              sending = false;
+                              dialogError = NotesLogic.userMessageForError(
+                                error,
+                                fallback: 'Could not send reset email.',
+                              );
+                            });
+                          }
+                        },
+                  child: sending
+                      ? const SizedBox(
+                          height: 16,
+                          width: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('Send link'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
@@ -288,6 +379,16 @@ class _NotesAuthPageState extends State<NotesAuthPage> {
                               return null;
                             },
                           ),
+                          if (!_isRegister) ...[
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: TextButton(
+                                onPressed:
+                                    _loading ? null : _showForgotPasswordDialog,
+                                child: const Text('Forgot password?'),
+                              ),
+                            ),
+                          ],
                           if (_isRegister) ...[
                             const SizedBox(height: 12),
                             TextFormField(
