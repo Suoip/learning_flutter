@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'notes_data_source.dart';
+import 'profiles_data_source.dart';
 import 'supabase_client.dart';
 
 enum NoteQuickFilter { all, pinned, favorites }
@@ -171,22 +172,31 @@ class FeedCommentItem {
 }
 
 class NotesLogic {
-  NotesLogic({SupabaseClient? client, NotesDataSource? notesDataSource})
-      : _explicitClient = client,
-        _notesDataSource = notesDataSource ??
-            SupabaseNotesDataSource(client ?? AppSupabase.client);
+  NotesLogic({
+    SupabaseClient? client,
+    NotesDataSource? notesDataSource,
+    ProfilesDataSource? profilesDataSource,
+  })  : _explicitClient = client,
+        _explicitNotesDataSource = notesDataSource,
+        _explicitProfilesDataSource = profilesDataSource;
 
   final SupabaseClient? _explicitClient;
 
   // Lazy: only resolves AppSupabase.client (which requires Supabase to be
-  // initialized) the first time something actually needs `_client`, so
-  // tests that only exercise notesDataSource-backed methods never touch
-  // it, even without passing an explicit `client`.
+  // initialized) the first time something actually needs it. `_notesDataSource`
+  // and `_profilesDataSource` are lazy for the same reason and build on this -
+  // a test that injects one fake data source and never touches the other
+  // never forces AppSupabase.client to resolve, even without an explicit
+  // `client`, because the unused field's `late` initializer never runs.
   late final SupabaseClient _client = _explicitClient ?? AppSupabase.client;
 
-  final NotesDataSource _notesDataSource;
-  static const String _profilesTable = 'profiles';
-  static const String _avatarsBucket = 'profile-pictures';
+  final NotesDataSource? _explicitNotesDataSource;
+  late final NotesDataSource _notesDataSource =
+      _explicitNotesDataSource ?? SupabaseNotesDataSource(_client);
+
+  final ProfilesDataSource? _explicitProfilesDataSource;
+  late final ProfilesDataSource _profilesDataSource =
+      _explicitProfilesDataSource ?? SupabaseProfilesDataSource(_client);
   static const String activationRequiredMessage =
       'Please confirm your email to activate your account.';
 
@@ -324,7 +334,7 @@ class NotesLogic {
   }
 
   Future<void> ensureProfileForCurrentUser({String? preferredUsername}) async {
-    final user = currentUser;
+    final user = _profilesDataSource.currentUser;
     if (user == null) return;
 
     final safeUsername = _safeUsernameForUser(
@@ -332,24 +342,20 @@ class NotesLogic {
       preferredUsername: preferredUsername,
     );
 
-    final existing = await _client
-        .from(_profilesTable)
-        .select('id,username')
-        .eq('id', user.id)
-        .maybeSingle();
+    final existing = await _profilesDataSource.selectProfileById(user.id);
 
     if (existing != null) {
       final currentUsername =
           (existing['username'] ?? '').toString().trim().toLowerCase();
       if (currentUsername == safeUsername) return;
 
-      await _client.from(_profilesTable).update({
+      await _profilesDataSource.updateProfileById(user.id, {
         'username': safeUsername,
-      }).eq('id', user.id);
+      });
       return;
     }
 
-    await _client.from(_profilesTable).insert({
+    await _profilesDataSource.insertProfile({
       'id': user.id,
       'username': safeUsername,
       'avatar_url': null,
@@ -357,24 +363,23 @@ class NotesLogic {
   }
 
   Future<UserProfile> fetchCurrentProfile() async {
-    final user = currentUser;
+    final user = _profilesDataSource.currentUser;
     if (user == null) {
       throw Exception('You are not logged in.');
     }
 
     await ensureProfileForCurrentUser();
 
-    final row = await _client
-        .from(_profilesTable)
-        .select('id,username,avatar_url')
-        .eq('id', user.id)
-        .single();
+    final row = await _profilesDataSource.selectProfileById(user.id);
+    if (row == null) {
+      throw Exception('Profile not found.');
+    }
 
     return UserProfile.fromMap(user: user, map: row);
   }
 
   Future<UserProfile> updateUsername(String username) async {
-    final user = currentUser;
+    final user = _profilesDataSource.currentUser;
     if (user == null) {
       throw Exception('You are not logged in.');
     }
@@ -392,7 +397,7 @@ class NotesLogic {
       throw Exception(userMessageForError(error));
     }
 
-    await _client.from(_profilesTable).upsert({
+    await _profilesDataSource.upsertProfile({
       'id': user.id,
       'username': normalized,
     }, onConflict: 'id');
@@ -416,7 +421,7 @@ class NotesLogic {
     required Uint8List bytes,
     required String extension,
   }) async {
-    final user = currentUser;
+    final user = _profilesDataSource.currentUser;
     if (user == null) {
       throw Exception('You are not logged in.');
     }
@@ -429,18 +434,13 @@ class NotesLogic {
     }
 
     final objectPath = '${user.id}/avatar.$normalizedExtension';
-    await _client.storage.from(_avatarsBucket).uploadBinary(
-          objectPath,
-          bytes,
-          fileOptions: const FileOptions(
-            upsert: true,
-            cacheControl: '3600',
-          ),
-        );
+    final publicUrl = await _profilesDataSource.uploadAvatarAndGetPublicUrl(
+      objectPath: objectPath,
+      bytes: bytes,
+    );
 
     final timestamp = DateTime.now().toUtc().millisecondsSinceEpoch;
-    final avatarUrl =
-        '${_client.storage.from(_avatarsBucket).getPublicUrl(objectPath)}?v=$timestamp';
+    final avatarUrl = '$publicUrl?v=$timestamp';
 
     // A plain update, not an upsert: the profile row is always created
     // before this screen is reachable (see ensureProfileForCurrentUser),
@@ -448,9 +448,9 @@ class NotesLogic {
     // validates the hypothetical INSERT half of an upsert - including
     // NOT NULL columns not present in the payload - before it even checks
     // for a conflict to fall back to UPDATE.
-    await _client
-        .from(_profilesTable)
-        .update({'avatar_url': avatarUrl}).eq('id', user.id);
+    await _profilesDataSource.updateProfileById(user.id, {
+      'avatar_url': avatarUrl,
+    });
 
     return fetchCurrentProfile();
   }
@@ -676,23 +676,18 @@ class NotesLogic {
   String _pairHigh(String a, String b) => a.compareTo(b) <= 0 ? b : a;
 
   Future<List<ProfilePreview>> searchUsersByUsername(String query) async {
-    final user = currentUser;
+    final user = _profilesDataSource.currentUser;
     if (user == null) return [];
 
     final normalized = query.trim().toLowerCase();
     if (normalized.isEmpty) return [];
 
-    final rows = await _client
-        .from('profiles')
-        .select('id,username,avatar_url')
-        .ilike('username', '%$normalized%')
-        .neq('id', user.id)
-        .order('username')
-        .limit(20);
+    final rows = await _profilesDataSource.searchProfilesByUsername(
+      query: normalized,
+      excludeUserId: user.id,
+    );
 
-    return (rows as List<dynamic>)
-        .map((row) => ProfilePreview.fromMap(row as Map<String, dynamic>))
-        .toList();
+    return rows.map((row) => ProfilePreview.fromMap(row)).toList();
   }
 
   Future<bool> _areFriends(String userA, String userB) async {
