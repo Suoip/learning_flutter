@@ -80,12 +80,9 @@ class _NotesProfilePageState extends State<NotesProfilePage> {
     );
     if (picked == null) return;
 
-    final filePath = picked.path.toLowerCase();
-    final dotIndex = filePath.lastIndexOf('.');
-    final rawExtension =
-        dotIndex > -1 ? filePath.substring(dotIndex + 1) : 'jpg';
-    final extension = rawExtension.replaceAll(RegExp(r'[^a-z0-9]'), '');
-    final sanitizedExtension = extension.isEmpty ? 'jpg' : extension;
+    // picked.name (not picked.path) - on web, XFile.path is a blob: URL,
+    // not the original filename, so the extension must come from .name.
+    final sanitizedExtension = NotesLogic.extensionFromFileName(picked.name);
 
     setState(() {
       _uploadingAvatar = true;

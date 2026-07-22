@@ -276,6 +276,22 @@ class NotesLogic {
     return pattern.hasMatch(normalized);
   }
 
+  /// Derives a safe, lowercase file extension (without the dot) from a
+  /// picked file's name, defaulting to "jpg" if none can be determined.
+  ///
+  /// Callers must pass the file's *name* (e.g. `XFile.name`), not its
+  /// *path* - on web, `XFile.path` is a blob: URL rather than the original
+  /// filename, so parsing an extension out of it picks up stray dots from
+  /// the page origin instead of the real file extension.
+  static String extensionFromFileName(String fileName) {
+    final normalized = fileName.trim().toLowerCase();
+    final dotIndex = normalized.lastIndexOf('.');
+    final rawExtension =
+        dotIndex > -1 ? normalized.substring(dotIndex + 1) : 'jpg';
+    final extension = rawExtension.replaceAll(RegExp(r'[^a-z0-9]'), '');
+    return extension.isEmpty ? 'jpg' : extension;
+  }
+
   String _safeUsernameForUser(User user, {String? preferredUsername}) {
     final preferred = (preferredUsername ?? defaultUsernameForUser(user))
         .trim()
@@ -404,10 +420,15 @@ class NotesLogic {
     final avatarUrl =
         '${_client.storage.from(_avatarsBucket).getPublicUrl(objectPath)}?v=$timestamp';
 
-    await _client.from(_profilesTable).upsert({
-      'id': user.id,
-      'avatar_url': avatarUrl,
-    }, onConflict: 'id');
+    // A plain update, not an upsert: the profile row is always created
+    // before this screen is reachable (see ensureProfileForCurrentUser),
+    // and upserting here without `username` fails, since Postgres
+    // validates the hypothetical INSERT half of an upsert - including
+    // NOT NULL columns not present in the payload - before it even checks
+    // for a conflict to fall back to UPDATE.
+    await _client
+        .from(_profilesTable)
+        .update({'avatar_url': avatarUrl}).eq('id', user.id);
 
     return fetchCurrentProfile();
   }

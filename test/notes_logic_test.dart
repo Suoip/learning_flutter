@@ -419,6 +419,28 @@ void main() {
     });
   });
 
+  group('extensionFromFileName', () {
+    test('extracts a simple extension', () {
+      expect(NotesLogic.extensionFromFileName('photo.png'), 'png');
+    });
+
+    test('lowercases the extension', () {
+      expect(NotesLogic.extensionFromFileName('IMG_1234.JPG'), 'jpg');
+    });
+
+    test('uses the last dot when the name has multiple', () {
+      expect(NotesLogic.extensionFromFileName('my.photo.name.png'), 'png');
+    });
+
+    test('defaults to jpg when there is no extension at all', () {
+      expect(NotesLogic.extensionFromFileName('noextension'), 'jpg');
+    });
+
+    test('trims surrounding whitespace before parsing', () {
+      expect(NotesLogic.extensionFromFileName('  photo.webp  '), 'webp');
+    });
+  });
+
   group('NoteItem.fromMap', () {
     test('parses a complete row', () {
       final note = NoteItem.fromMap({
