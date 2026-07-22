@@ -141,6 +141,68 @@ class _NotesSocialPageState extends State<NotesSocialPage> {
     }
   }
 
+  Future<void> _cancelRequest(String requestId) async {
+    try {
+      await _logic.cancelFriendRequest(requestId);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Friend request cancelled.')),
+      );
+      await _loadAll();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content:
+                Text(_friendly(error, fallback: 'Could not cancel request.'))),
+      );
+    }
+  }
+
+  Future<void> _removeFriend(FriendItem friend) async {
+    final shouldRemove = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Remove Friend'),
+          content: Text(
+            'Remove @${friend.friend.username} from your friends? '
+            "You'll need to send a new friend request to reconnect.",
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Remove'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldRemove != true) return;
+
+    try {
+      await _logic.removeFriend(friend.friendshipId);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content: Text('Removed @${friend.friend.username} from friends.')),
+      );
+      await _loadAll();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content:
+                Text(_friendly(error, fallback: 'Could not remove friend.'))),
+      );
+    }
+  }
+
   Future<void> _toggleLike(SharedNoteFeedItem item) async {
     try {
       await _logic.toggleFeedLike(item.id);
@@ -201,6 +263,8 @@ class _NotesSocialPageState extends State<NotesSocialPage> {
                     onSearch: _searchUsers,
                     onSendRequest: _sendRequest,
                     onRespondRequest: _respondRequest,
+                    onCancelRequest: _cancelRequest,
+                    onRemoveFriend: _removeFriend,
                     onRefresh: _loadAll,
                   ),
                   FeedTab(
