@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'notes_data_source.dart';
 import 'supabase_client.dart';
 
 enum NoteQuickFilter { all, pinned, favorites }
@@ -170,9 +171,20 @@ class FeedCommentItem {
 }
 
 class NotesLogic {
-  NotesLogic({SupabaseClient? client}) : _client = client ?? AppSupabase.client;
+  NotesLogic({SupabaseClient? client, NotesDataSource? notesDataSource})
+      : _explicitClient = client,
+        _notesDataSource = notesDataSource ??
+            SupabaseNotesDataSource(client ?? AppSupabase.client);
 
-  final SupabaseClient _client;
+  final SupabaseClient? _explicitClient;
+
+  // Lazy: only resolves AppSupabase.client (which requires Supabase to be
+  // initialized) the first time something actually needs `_client`, so
+  // tests that only exercise notesDataSource-backed methods never touch
+  // it, even without passing an explicit `client`.
+  late final SupabaseClient _client = _explicitClient ?? AppSupabase.client;
+
+  final NotesDataSource _notesDataSource;
   static const String _profilesTable = 'profiles';
   static const String _avatarsBucket = 'profile-pictures';
   static const String activationRequiredMessage =
@@ -434,18 +446,11 @@ class NotesLogic {
   }
 
   Future<List<NoteItem>> fetchNotesForCurrentUser() async {
-    final user = currentUser;
-    if (user == null) return [];
+    final userId = _notesDataSource.currentUserId;
+    if (userId == null) return [];
 
-    final rows = await _client
-        .from('notes')
-        .select('id,title,content,updated_at,created_at,is_pinned,is_favorite')
-        .eq('user_id', user.id)
-        .order('updated_at', ascending: false);
-
-    final notes = (rows as List<dynamic>)
-        .map((row) => NoteItem.fromMap(row as Map<String, dynamic>))
-        .toList();
+    final rows = await _notesDataSource.selectNotes(userId: userId);
+    final notes = rows.map((row) => NoteItem.fromMap(row)).toList();
 
     return sortNotes(notes);
   }
@@ -476,22 +481,18 @@ class NotesLogic {
   }
 
   Future<NoteItem> createNote(String title) async {
-    final user = currentUser;
-    if (user == null) {
+    final userId = _notesDataSource.currentUserId;
+    if (userId == null) {
       throw Exception('You are not logged in.');
     }
 
-    final inserted = await _client
-        .from('notes')
-        .insert({
-          'user_id': user.id,
-          'title': title.trim(),
-          'content': '',
-          'is_pinned': false,
-          'is_favorite': false,
-        })
-        .select('id,title,content,updated_at,created_at,is_pinned,is_favorite')
-        .single();
+    final inserted = await _notesDataSource.insertNote({
+      'user_id': userId,
+      'title': title.trim(),
+      'content': '',
+      'is_pinned': false,
+      'is_favorite': false,
+    });
 
     return NoteItem.fromMap(inserted);
   }
@@ -501,29 +502,29 @@ class NotesLogic {
     required String title,
     required String content,
   }) async {
-    await _client.from('notes').update({
+    await _notesDataSource.updateNoteById(noteId, {
       'title': title,
       'content': content,
       'updated_at': DateTime.now().toUtc().toIso8601String(),
-    }).eq('id', noteId);
+    });
   }
 
   Future<void> togglePin(NoteItem note) async {
-    await _client.from('notes').update({
+    await _notesDataSource.updateNoteById(note.id, {
       'is_pinned': !note.isPinned,
       'updated_at': DateTime.now().toUtc().toIso8601String(),
-    }).eq('id', note.id);
+    });
   }
 
   Future<void> toggleFavorite(NoteItem note) async {
-    await _client.from('notes').update({
+    await _notesDataSource.updateNoteById(note.id, {
       'is_favorite': !note.isFavorite,
       'updated_at': DateTime.now().toUtc().toIso8601String(),
-    }).eq('id', note.id);
+    });
   }
 
   Future<void> deleteNote(String noteId) async {
-    await _client.from('notes').delete().eq('id', noteId);
+    await _notesDataSource.deleteNoteById(noteId);
   }
 
   Future<void> signOut() async {
