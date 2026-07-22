@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'calculator_page.dart' as calculator_page;
-import 'cv_page.dart' as cv_page;
+import 'cv/cv_page.dart' as cv_page;
 import 'notes/notes_page.dart' as notes_page;
 import '../resources_and_services/loading.dart' as world_time_loading;
 
