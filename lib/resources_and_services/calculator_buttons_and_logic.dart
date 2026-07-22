@@ -167,9 +167,8 @@ class CalculatorLogic {
     }
 
     final fixed = value.toStringAsFixed(10);
-    final cleaned = fixed
-        .replaceFirst(RegExp(r'0+$'), '')
-        .replaceFirst(RegExp(r'\.$'), '');
+    final cleaned =
+        fixed.replaceFirst(RegExp(r'0+$'), '').replaceFirst(RegExp(r'\.$'), '');
 
     if (cleaned == '-0') {
       return '0';

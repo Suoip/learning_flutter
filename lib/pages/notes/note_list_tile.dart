@@ -40,8 +40,7 @@ class NoteListTile extends StatelessWidget {
           color: Colors.red.shade400,
           borderRadius: BorderRadius.circular(18),
         ),
-        child:
-            const Icon(Icons.delete_outline_rounded, color: Colors.white),
+        child: const Icon(Icons.delete_outline_rounded, color: Colors.white),
       ),
       confirmDismiss: (_) => onConfirmDismiss(),
       child: Card(

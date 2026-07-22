@@ -24,7 +24,8 @@ class ProjectsHomePage extends StatelessWidget {
     ),
     _ProjectEntry(
       title: 'Clock',
-      subtitle: 'Location-aware World Clock time display with route navigation and StopWatch app combined with bottom navigation bar access.',
+      subtitle:
+          'Location-aware World Clock time display with route navigation and StopWatch app combined with bottom navigation bar access.',
       icon: Icons.schedule_outlined,
       accent: Color(0xFF0F766E),
       builder: _buildWorldTimePage,
@@ -134,9 +135,9 @@ class ProjectsHomePage extends StatelessWidget {
                             ? 2
                             : 1;
                     final spacing = 16.0;
-                    final cardWidth =
-                        (constraints.maxWidth - ((crossAxisCount - 1) * spacing)) /
-                            crossAxisCount;
+                    final cardWidth = (constraints.maxWidth -
+                            ((crossAxisCount - 1) * spacing)) /
+                        crossAxisCount;
 
                     return Wrap(
                       spacing: spacing,

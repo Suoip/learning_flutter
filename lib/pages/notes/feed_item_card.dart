@@ -60,8 +60,7 @@ class FeedItemCard extends StatelessWidget {
             const SizedBox(height: 10),
             Text(
               item.title,
-              style:
-                  const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 6),
             Text(item.content.isEmpty ? '(No content)' : item.content),
@@ -90,8 +89,8 @@ class FeedItemCard extends StatelessWidget {
                 Text('${item.commentCount}'),
                 const Spacer(),
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 8, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
                     color: cs.secondaryContainer,
                     borderRadius: BorderRadius.circular(999),

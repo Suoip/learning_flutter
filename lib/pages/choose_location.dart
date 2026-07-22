@@ -57,29 +57,30 @@ class _ChooseLocationState extends State<ChooseLocation> {
         elevation: 0,
       ),
       body: ListView.builder(
-        itemCount: locations.length,
-        itemBuilder: (context, index) {
-          return Padding(
-            padding: const EdgeInsets.symmetric(vertical: 1.0, horizontal: 4.0),
-            child: Card(
-              child: ListTile(
-                onTap: _isFetching ? null : () => updateTime(index),
-                title: Text(locations[index].location),
-                leading: CircleAvatar(
-                  backgroundImage: AssetImage('assets/${locations[index].flag}'),
+          itemCount: locations.length,
+          itemBuilder: (context, index) {
+            return Padding(
+              padding:
+                  const EdgeInsets.symmetric(vertical: 1.0, horizontal: 4.0),
+              child: Card(
+                child: ListTile(
+                  onTap: _isFetching ? null : () => updateTime(index),
+                  title: Text(locations[index].location),
+                  leading: CircleAvatar(
+                    backgroundImage:
+                        AssetImage('assets/${locations[index].flag}'),
+                  ),
+                  trailing: _isFetching && _activeIndex == index
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : null,
                 ),
-                trailing: _isFetching && _activeIndex == index
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : null,
               ),
-            ),
-          );
-        }
-      ),
+            );
+          }),
     );
   }
 }

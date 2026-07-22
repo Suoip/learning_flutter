@@ -323,8 +323,7 @@ class _NotesAuthPageState extends State<NotesAuthPage> {
                               decoration: BoxDecoration(
                                 color: Colors.blue.shade50,
                                 borderRadius: BorderRadius.circular(12),
-                                border:
-                                    Border.all(color: Colors.blue.shade100),
+                                border: Border.all(color: Colors.blue.shade100),
                               ),
                               child: Text(
                                 _infoText!,
@@ -366,7 +365,8 @@ class _NotesAuthPageState extends State<NotesAuthPage> {
                           if (_pendingConfirmationEmail != null) ...[
                             const SizedBox(height: 8),
                             TextButton(
-                              onPressed: _loading ? null : _resendConfirmationEmail,
+                              onPressed:
+                                  _loading ? null : _resendConfirmationEmail,
                               child: const Text('Resend confirmation email'),
                             ),
                           ],

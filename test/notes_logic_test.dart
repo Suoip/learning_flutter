@@ -297,8 +297,7 @@ void main() {
         );
       });
 
-      test('collapses a raw AuthApiException string to a friendly message',
-          () {
+      test('collapses a raw AuthApiException string to a friendly message', () {
         expect(
           NotesLogic.userMessageForError(
             Exception('AuthApiException(message: bad request, code: 400)'),
@@ -516,8 +515,7 @@ void main() {
       expect(preview.avatarUrl, 'https://x/y.png');
     });
 
-    test('defaults username to an empty string and coerces id to String',
-        () {
+    test('defaults username to an empty string and coerces id to String', () {
       final preview = ProfilePreview.fromMap({'id': 42});
 
       expect(preview.id, '42');
@@ -528,8 +526,7 @@ void main() {
 
   group('NotesLogic.filterNotes', () {
     final meetingNotes = buildNote(id: '1', title: 'Meeting notes');
-    final groceries =
-        buildNote(id: '2', title: 'Groceries', isPinned: true);
+    final groceries = buildNote(id: '2', title: 'Groceries', isPinned: true);
     final travelPlans =
         buildNote(id: '3', title: 'Travel plans', isFavorite: true);
     final notes = [meetingNotes, groceries, travelPlans];
