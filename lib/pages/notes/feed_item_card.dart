@@ -42,7 +42,7 @@ class FeedItemCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        '@${item.authorUsername}',
+                        item.isOwnPost ? 'You' : '@${item.authorUsername}',
                         style: const TextStyle(fontWeight: FontWeight.w700),
                       ),
                       Text(
