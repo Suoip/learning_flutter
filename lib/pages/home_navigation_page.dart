@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'calculator_page.dart' as calculator_page;
 import 'cv/cv_page.dart' as cv_page;
 import 'notes/notes_page.dart' as notes_page;
+import 'smart_academy/smart_academy_page.dart' as smart_academy_page;
 import '../resources_and_services/loading.dart' as world_time_loading;
 
 class ProjectsHomePage extends StatelessWidget {
@@ -37,12 +38,21 @@ class ProjectsHomePage extends StatelessWidget {
       accent: Color(0xFFDC2626),
       builder: _buildNotesPage,
     ),
+    _ProjectEntry(
+      title: 'SmartAcademy',
+      subtitle: 'A hub for learning to code, and for educators to teach it.',
+      icon: Icons.school_outlined,
+      accent: Color(0xFFD97706),
+      builder: _buildSmartAcademyPage,
+    ),
   ];
 
   static Widget _buildCalculatorPage() => const calculator_page.Home();
   static Widget _buildCvPage() => const cv_page.Home();
   static Widget _buildWorldTimePage() => const world_time_loading.Loading();
   static Widget _buildNotesPage() => const notes_page.NotesPage();
+  static Widget _buildSmartAcademyPage() =>
+      const smart_academy_page.SmartAcademyPage();
 
   @override
   Widget build(BuildContext context) {
