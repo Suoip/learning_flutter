@@ -26,6 +26,18 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
+            <!-- Lets Supabase's password-reset/signup-confirmation email links
+                 reopen this app instead of a browser. The scheme is derived
+                 from applicationId (build.gradle.kts) - if that ever changes,
+                 update it here, in the Makefile's MOBILE_EMAIL_REDIRECT_TO,
+                 and in the Supabase dashboard's Redirect URLs allow-list
+                 together, or the link will silently stop working. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="com.example.new_project" android:host="login-callback"/>
+            </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->

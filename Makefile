@@ -8,6 +8,13 @@ BASE_HREF ?= /
 GITHUB_REPO ?= https://github.com/Suoip/FlutterWeb
 CUSTOM_DOMAIN ?= flutterweb.salihonder.dev
 ENV_FILE ?= env.json
+# Must match android/app/src/main/AndroidManifest.xml's intent-filter data
+# tag and be allow-listed in the Supabase dashboard's Redirect URLs. Passed
+# as its own --dart-define below (after --dart-define-from-file) so it
+# always overrides whatever SUPABASE_EMAIL_REDIRECT_TO happens to be in
+# ENV_FILE - that file is shared with local web dev, where the redirect
+# needs to be a plain http:// URL instead, not this custom scheme.
+MOBILE_EMAIL_REDIRECT_TO ?= com.example.new_project://login-callback
 BUILD_VERSION := $(shell python -c "import pathlib, re; text = pathlib.Path('pubspec.yaml').read_text(encoding='utf-8'); m = re.search(r'^version:\s*([^\s]+)', text, re.M); print(m.group(1) if m else 'unknown')")
 
 # Web builds source secrets from the environment (e.g. CI/CD secrets) instead
@@ -21,7 +28,7 @@ BUILD_VERSION := $(shell python -c "import pathlib, re; text = pathlib.Path('pub
 # PATHEXT resolution can find it.
 deploy-web:
 	@echo "Checking required environment variables"
-	python -c "import sys; sys.exit(0) if '$(SUPABASE_URL)' and '$(SUPABASE_ANON_KEY)' else sys.exit('ERROR: SUPABASE_URL and/or SUPABASE_ANON_KEY are not set. Export them before running make deploy-web.')"
+	python -c "import sys; sys.exit(0) if '$(SUPABASE_URL)' and '$(SUPABASE_ANON_KEY)' and '$(SUPABASE_EMAIL_REDIRECT_TO)' else sys.exit('ERROR: SUPABASE_URL, SUPABASE_ANON_KEY, and/or SUPABASE_EMAIL_REDIRECT_TO are not set. Export them before running make deploy-web.')"
 
 	@echo "Cleaning previous build artifacts"
 	flutter clean
@@ -44,9 +51,12 @@ deploy-web:
 
 # Local APK build, sourcing secrets from ENV_FILE (default env.json - copy
 # env.example.json to env.json and fill in your values, it's gitignored).
+# SUPABASE_EMAIL_REDIRECT_TO from ENV_FILE is overridden with
+# MOBILE_EMAIL_REDIRECT_TO, since ENV_FILE's value is meant for local web
+# dev (see the comment on MOBILE_EMAIL_REDIRECT_TO above).
 build-apk:
 	python -c "import pathlib, sys; sys.exit(0) if pathlib.Path('$(ENV_FILE)').is_file() else sys.exit('ERROR: $(ENV_FILE) not found. Copy env.example.json to $(ENV_FILE) and fill in your values.')"
-	flutter build apk --release --dart-define-from-file=$(ENV_FILE)
+	flutter build apk --release --dart-define-from-file=$(ENV_FILE) --dart-define=SUPABASE_EMAIL_REDIRECT_TO=$(MOBILE_EMAIL_REDIRECT_TO)
 
 # Static analysis + unit tests. Mirrors what the CI workflow runs, so you can
 # reproduce a CI failure locally before pushing.
