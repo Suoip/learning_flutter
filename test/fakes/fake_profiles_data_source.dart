@@ -26,6 +26,23 @@ class FakeProfilesDataSource implements ProfilesDataSource {
   }
 
   @override
+  Future<Map<String, dynamic>?> selectProfileByUsername(String username) async {
+    final index = rows.indexWhere((row) => row['username'] == username);
+    if (index == -1) return null;
+    return Map<String, dynamic>.from(rows[index]);
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> selectProfilesByIds(
+    List<String> ids,
+  ) async {
+    return rows
+        .where((row) => ids.contains(row['id']))
+        .map((row) => Map<String, dynamic>.from(row))
+        .toList();
+  }
+
+  @override
   Future<void> insertProfile(Map<String, dynamic> values) async {
     rows.add(Map<String, dynamic>.from(values));
   }

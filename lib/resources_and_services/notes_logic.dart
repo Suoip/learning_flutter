@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'friends_data_source.dart';
 import 'notes_data_source.dart';
 import 'profiles_data_source.dart';
 import 'supabase_client.dart';
@@ -176,18 +177,20 @@ class NotesLogic {
     SupabaseClient? client,
     NotesDataSource? notesDataSource,
     ProfilesDataSource? profilesDataSource,
+    FriendsDataSource? friendsDataSource,
   })  : _explicitClient = client,
         _explicitNotesDataSource = notesDataSource,
-        _explicitProfilesDataSource = profilesDataSource;
+        _explicitProfilesDataSource = profilesDataSource,
+        _explicitFriendsDataSource = friendsDataSource;
 
   final SupabaseClient? _explicitClient;
 
   // Lazy: only resolves AppSupabase.client (which requires Supabase to be
-  // initialized) the first time something actually needs it. `_notesDataSource`
-  // and `_profilesDataSource` are lazy for the same reason and build on this -
-  // a test that injects one fake data source and never touches the other
+  // initialized) the first time something actually needs it. Each data
+  // source field below is lazy for the same reason and builds on this - a
+  // test that injects one fake data source and never touches the others
   // never forces AppSupabase.client to resolve, even without an explicit
-  // `client`, because the unused field's `late` initializer never runs.
+  // `client`, because the unused fields' `late` initializers never run.
   late final SupabaseClient _client = _explicitClient ?? AppSupabase.client;
 
   final NotesDataSource? _explicitNotesDataSource;
@@ -197,6 +200,10 @@ class NotesLogic {
   final ProfilesDataSource? _explicitProfilesDataSource;
   late final ProfilesDataSource _profilesDataSource =
       _explicitProfilesDataSource ?? SupabaseProfilesDataSource(_client);
+
+  final FriendsDataSource? _explicitFriendsDataSource;
+  late final FriendsDataSource _friendsDataSource =
+      _explicitFriendsDataSource ?? SupabaseFriendsDataSource(_client);
   static const String activationRequiredMessage =
       'Please confirm your email to activate your account.';
 
@@ -693,18 +700,16 @@ class NotesLogic {
   Future<bool> _areFriends(String userA, String userB) async {
     final low = _pairLow(userA, userB);
     final high = _pairHigh(userA, userB);
-    final row = await _client
-        .from('friendships')
-        .select('id')
-        .eq('user_low_id', low)
-        .eq('user_high_id', high)
-        .maybeSingle();
+    final row = await _friendsDataSource.selectFriendshipByPair(
+      lowId: low,
+      highId: high,
+    );
     return row != null;
   }
 
   Future<void> sendFriendRequestByUsername(String username) async {
-    final user = currentUser;
-    if (user == null) {
+    final userId = _friendsDataSource.currentUserId;
+    if (userId == null) {
       throw Exception('You are not logged in.');
     }
 
@@ -713,53 +718,44 @@ class NotesLogic {
       throw Exception('Enter a valid username.');
     }
 
-    final target = await _client
-        .from('profiles')
-        .select('id,username')
-        .eq('username', normalized)
-        .maybeSingle();
+    final target = await _profilesDataSource.selectProfileByUsername(
+      normalized,
+    );
     if (target == null) {
       throw Exception('No user found with that username.');
     }
 
     final targetId = target['id'].toString();
-    if (targetId == user.id) {
+    if (targetId == userId) {
       throw Exception('You cannot send a friend request to yourself.');
     }
 
-    if (await _areFriends(user.id, targetId)) {
+    if (await _areFriends(userId, targetId)) {
       throw Exception('You are already friends.');
     }
 
-    final existing = await _client
-        .from('friend_requests')
-        .select('id')
-        .or('and(sender_id.eq.${user.id},receiver_id.eq.$targetId),and(sender_id.eq.$targetId,receiver_id.eq.${user.id})')
-        .eq('status', 'pending')
-        .maybeSingle();
+    final existing = await _friendsDataSource.selectPendingRequestBetween(
+      userA: userId,
+      userB: targetId,
+    );
     if (existing != null) {
       throw Exception('A pending friend request already exists.');
     }
 
-    await _client.from('friend_requests').insert({
-      'sender_id': user.id,
+    await _friendsDataSource.insertFriendRequest({
+      'sender_id': userId,
       'receiver_id': targetId,
       'status': 'pending',
     });
   }
 
   Future<List<FriendRequestItem>> fetchIncomingFriendRequests() async {
-    final user = currentUser;
-    if (user == null) return [];
+    final userId = _friendsDataSource.currentUserId;
+    if (userId == null) return [];
 
-    final rows = await _client
-        .from('friend_requests')
-        .select('id,sender_id,receiver_id,status,created_at')
-        .eq('receiver_id', user.id)
-        .eq('status', 'pending')
-        .order('created_at', ascending: false);
-
-    final data = (rows as List<dynamic>).cast<Map<String, dynamic>>();
+    final data = await _friendsDataSource.selectPendingRequestsForReceiver(
+      userId,
+    );
     final senderIds =
         data.map((e) => e['sender_id'].toString()).toSet().toList();
     final profiles = await _loadProfiles(senderIds);
@@ -780,17 +776,12 @@ class NotesLogic {
   }
 
   Future<List<FriendRequestItem>> fetchOutgoingFriendRequests() async {
-    final user = currentUser;
-    if (user == null) return [];
+    final userId = _friendsDataSource.currentUserId;
+    if (userId == null) return [];
 
-    final rows = await _client
-        .from('friend_requests')
-        .select('id,sender_id,receiver_id,status,created_at')
-        .eq('sender_id', user.id)
-        .eq('status', 'pending')
-        .order('created_at', ascending: false);
-
-    final data = (rows as List<dynamic>).cast<Map<String, dynamic>>();
+    final data = await _friendsDataSource.selectPendingRequestsForSender(
+      userId,
+    );
     final receiverIds =
         data.map((e) => e['receiver_id'].toString()).toSet().toList();
     final profiles = await _loadProfiles(receiverIds);
@@ -816,13 +807,10 @@ class NotesLogic {
 
   Future<Map<String, ProfilePreview>> _loadProfiles(List<String> ids) async {
     if (ids.isEmpty) return {};
-    final rows = await _client
-        .from('profiles')
-        .select('id,username,avatar_url')
-        .inFilter('id', ids);
+    final rows = await _profilesDataSource.selectProfilesByIds(ids);
 
     final map = <String, ProfilePreview>{};
-    for (final item in (rows as List<dynamic>).cast<Map<String, dynamic>>()) {
+    for (final item in rows) {
       final profile = ProfilePreview.fromMap(item);
       map[profile.id] = profile;
     }
@@ -833,89 +821,85 @@ class NotesLogic {
     required String requestId,
     required bool accept,
   }) async {
-    final user = currentUser;
-    if (user == null) {
+    final userId = _friendsDataSource.currentUserId;
+    if (userId == null) {
       throw Exception('You are not logged in.');
     }
 
-    final request = await _client
-        .from('friend_requests')
-        .select('id,sender_id,receiver_id,status')
-        .eq('id', requestId)
-        .single();
+    final request = await _friendsDataSource.selectFriendRequestById(
+      requestId,
+    );
+    if (request == null) {
+      throw Exception('This request can no longer be updated.');
+    }
 
     final senderId = request['sender_id'].toString();
     final receiverId = request['receiver_id'].toString();
     final status = request['status'].toString();
 
-    if (receiverId != user.id || status != 'pending') {
+    if (receiverId != userId || status != 'pending') {
       throw Exception('This request can no longer be updated.');
     }
 
     if (accept) {
-      await _client
-          .from('friend_requests')
-          .update({'status': 'accepted'}).eq('id', requestId);
+      await _friendsDataSource.updateFriendRequestStatus(
+        requestId,
+        'accepted',
+      );
       final low = _pairLow(senderId, receiverId);
       final high = _pairHigh(senderId, receiverId);
-      await _client.from('friendships').upsert({
-        'user_low_id': low,
-        'user_high_id': high,
-      }, onConflict: 'user_low_id,user_high_id');
+      await _friendsDataSource.upsertFriendship(lowId: low, highId: high);
     } else {
-      await _client
-          .from('friend_requests')
-          .update({'status': 'declined'}).eq('id', requestId);
+      await _friendsDataSource.updateFriendRequestStatus(
+        requestId,
+        'declined',
+      );
     }
   }
 
   Future<void> cancelFriendRequest(String requestId) async {
-    final user = currentUser;
-    if (user == null) {
+    final userId = _friendsDataSource.currentUserId;
+    if (userId == null) {
       throw Exception('You are not logged in.');
     }
 
-    final request = await _client
-        .from('friend_requests')
-        .select('id,sender_id,status')
-        .eq('id', requestId)
-        .single();
+    final request = await _friendsDataSource.selectFriendRequestById(
+      requestId,
+    );
+    if (request == null) {
+      throw Exception('This request can no longer be cancelled.');
+    }
 
     final senderId = request['sender_id'].toString();
     final status = request['status'].toString();
 
-    if (senderId != user.id || status != 'pending') {
+    if (senderId != userId || status != 'pending') {
       throw Exception('This request can no longer be cancelled.');
     }
 
-    await _client
-        .from('friend_requests')
-        .update({'status': 'cancelled'}).eq('id', requestId);
+    await _friendsDataSource.updateFriendRequestStatus(
+      requestId,
+      'cancelled',
+    );
   }
 
   Future<List<FriendItem>> fetchFriends() async {
-    final user = currentUser;
-    if (user == null) return [];
+    final userId = _friendsDataSource.currentUserId;
+    if (userId == null) return [];
 
-    final rows = await _client
-        .from('friendships')
-        .select('id,user_low_id,user_high_id,created_at')
-        .or('user_low_id.eq.${user.id},user_high_id.eq.${user.id}')
-        .order('created_at', ascending: false);
-
-    final data = (rows as List<dynamic>).cast<Map<String, dynamic>>();
+    final data = await _friendsDataSource.selectFriendshipsForUser(userId);
     final friendIds = <String>{};
     for (final row in data) {
       final low = row['user_low_id'].toString();
       final high = row['user_high_id'].toString();
-      friendIds.add(low == user.id ? high : low);
+      friendIds.add(low == userId ? high : low);
     }
     final profiles = await _loadProfiles(friendIds.toList());
 
     return data.map((row) {
       final low = row['user_low_id'].toString();
       final high = row['user_high_id'].toString();
-      final friendId = low == user.id ? high : low;
+      final friendId = low == userId ? high : low;
       return FriendItem(
         friendshipId: row['id'].toString(),
         friend: profiles[friendId] ??
@@ -926,22 +910,17 @@ class NotesLogic {
   }
 
   Future<void> removeFriend(String friendshipId) async {
-    final user = currentUser;
-    if (user == null) {
+    final userId = _friendsDataSource.currentUserId;
+    if (userId == null) {
       throw Exception('You are not logged in.');
     }
-    await _client.from('friendships').delete().eq('id', friendshipId);
+    await _friendsDataSource.deleteFriendshipById(friendshipId);
   }
 
   Future<int> fetchIncomingRequestCount() async {
-    final user = currentUser;
-    if (user == null) return 0;
-    final rows = await _client
-        .from('friend_requests')
-        .select('id')
-        .eq('receiver_id', user.id)
-        .eq('status', 'pending');
-    return (rows as List<dynamic>).length;
+    final userId = _friendsDataSource.currentUserId;
+    if (userId == null) return 0;
+    return _friendsDataSource.countPendingRequestsForReceiver(userId);
   }
 
   Future<void> publishNoteToFriends(NoteItem note) async {
