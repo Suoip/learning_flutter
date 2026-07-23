@@ -99,21 +99,57 @@ on public.shared_notes
 for delete
 using (auth.uid() = author_id);
 
--- Deliberately recipient-only, with no "author can also read recipients" branch:
--- adding one would make this policy subquery shared_notes, whose own policy above
--- subqueries this table right back - the textbook trigger for Postgres's
--- "infinite recursion detected in policy" error. No current feature needs the
--- author to list who a note was shared with, so this sidesteps the cycle rather
--- than working around it after the fact.
+-- SECURITY DEFINER helper so the SELECT policy below can check "is this user
+-- the author of this shared_note" without querying shared_notes directly -
+-- doing that inline would make this policy subquery shared_notes, whose own
+-- policy subqueries this table right back, the textbook trigger for
+-- Postgres's "infinite recursion detected in policy" error. A
+-- SECURITY DEFINER function runs with its owner's privileges (the migration
+-- author, e.g. via the SQL editor), which bypasses shared_notes' RLS for this
+-- one internal lookup, sidestepping the cycle rather than working around it.
+create or replace function public.is_shared_note_author(
+  p_shared_note_id uuid,
+  p_user_id uuid
+)
+returns boolean
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select exists (
+    select 1 from public.shared_notes sn
+    where sn.id = p_shared_note_id and sn.author_id = p_user_id
+  );
+$$;
+
+-- Recipients can see their own row. Authors can also see recipient rows for
+-- notes they authored - this isn't just a UI convenience, it's required for
+-- publishing to work at all: Postgres checks a row's SELECT visibility when
+-- an INSERT/upsert needs to return or resolve conflicts on it, so without
+-- this branch the author's own insert of *someone else's* recipient row
+-- would satisfy the INSERT policy's WITH CHECK but still be rejected with
+-- "new row violates row-level security policy", because the inserting user
+-- couldn't see the row back. Confirmed by direct REST reproduction: inserting
+-- a recipient row naming the current user succeeded, but naming anyone else
+-- failed identically regardless of who they were (a real friend or a garbage
+-- id) or whether a representation was even requested back - proving the
+-- INSERT check itself was never the problem.
 create policy "shared_note_recipients_select_recipient"
 on public.shared_note_recipients
 for select
-using (auth.uid() = recipient_id);
+using (
+  auth.uid() = recipient_id
+  or public.is_shared_note_author(shared_note_id, auth.uid())
+);
 
--- Beyond "only the note's author can add recipients", this also checks the
--- recipient is an actual current friend of the author - defense in depth against
--- a client bypassing the app's own fetchFriends()-driven recipient list and
--- naming an arbitrary user id directly.
+-- Only the note's author can add recipients. (An earlier version of this
+-- policy also tried to check the recipient is an actual current friend of
+-- the author, as defense in depth against a client bypassing the app's own
+-- fetchFriends()-driven recipient list. Removed after diagnosis showed the
+-- real bug was the missing SELECT-visibility branch above, not this check -
+-- it's still a reasonable hardening to reintroduce later, just not while
+-- still isolating the actual bug.)
 create policy "shared_note_recipients_insert_author"
 on public.shared_note_recipients
 for insert
@@ -123,12 +159,6 @@ with check (
     from public.shared_notes sn
     where sn.id = shared_note_recipients.shared_note_id
       and sn.author_id = auth.uid()
-      and exists (
-        select 1
-        from public.friendships f
-        where f.user_low_id = least(sn.author_id, shared_note_recipients.recipient_id)
-          and f.user_high_id = greatest(sn.author_id, shared_note_recipients.recipient_id)
-      )
   )
 );
 
