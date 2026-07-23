@@ -175,6 +175,30 @@ class FeedCommentItem {
   final DateTime createdAt;
 }
 
+/// What `signUpWithUsername` should do after a `signUp` call returns,
+/// derived from the shape of Supabase's response rather than requiring a
+/// real (or faked) Supabase client - see [NotesLogic.interpretSignUpResponse].
+class SignUpDecision {
+  const SignUpDecision({
+    required this.alreadyRegistered,
+    required this.shouldSignOut,
+    required this.completed,
+  });
+
+  /// The email already belongs to a confirmed account - the caller should
+  /// reject the sign-up with a friendly "already registered" error.
+  final bool alreadyRegistered;
+
+  /// There's a session (or a pre-existing current user) that should be
+  /// signed out - the account still needs email confirmation, so it
+  /// shouldn't be left signed in.
+  final bool shouldSignOut;
+
+  /// Sign-up is complete and usable immediately - the caller should ensure
+  /// the profile row exists and report success.
+  final bool completed;
+}
+
 class NotesLogic {
   NotesLogic({
     SupabaseClient? client,
@@ -222,6 +246,57 @@ class NotesLogic {
     if (user == null) return false;
     final confirmedAt = user.toJson()['email_confirmed_at'];
     return confirmedAt != null && confirmedAt.toString().trim().isNotEmpty;
+  }
+
+  /// Whether a just-completed sign-in should be rejected because the
+  /// account's email isn't confirmed yet. Takes the already-constructed
+  /// [AuthResponse] rather than making the real `signInWithPassword` call
+  /// itself, so this branch is unit-testable without a real (or faked)
+  /// Supabase client.
+  static bool shouldRejectSignIn({
+    required AuthResponse response,
+    required User? currentUser,
+  }) {
+    final signedInUser = response.user ?? currentUser;
+    return !isUserEmailConfirmed(signedInUser);
+  }
+
+  /// Derives what `signUpWithUsername` should do after a `signUp` call
+  /// returns, from the response shape alone - same testability rationale as
+  /// [shouldRejectSignIn]. Supabase's `signUp` deliberately obscures whether
+  /// an email is already registered (to prevent account-enumeration
+  /// attacks): for an existing, already-confirmed account it returns a user
+  /// with an empty `identities` list and no session, rather than an error -
+  /// checked first below, since it takes priority over the confirmation
+  /// check that follows.
+  static SignUpDecision interpretSignUpResponse({
+    required AuthResponse response,
+    required User? currentUser,
+  }) {
+    if (response.user?.identities?.isEmpty ?? false) {
+      return const SignUpDecision(
+        alreadyRegistered: true,
+        shouldSignOut: false,
+        completed: false,
+      );
+    }
+
+    final hasActiveSession = response.session != null || currentUser != null;
+    final signedUpUser = response.user ?? currentUser;
+
+    if (!isUserEmailConfirmed(signedUpUser)) {
+      return SignUpDecision(
+        alreadyRegistered: false,
+        shouldSignOut: hasActiveSession,
+        completed: false,
+      );
+    }
+
+    return SignUpDecision(
+      alreadyRegistered: false,
+      shouldSignOut: false,
+      completed: hasActiveSession,
+    );
   }
 
   static String formatUpdatedTime(DateTime dateTime) {
@@ -609,8 +684,7 @@ class NotesLogic {
         email: normalized,
         password: password,
       );
-      final signedInUser = response.user ?? currentUser;
-      if (!isUserEmailConfirmed(signedInUser)) {
+      if (shouldRejectSignIn(response: response, currentUser: currentUser)) {
         await _client.auth.signOut();
         throw Exception(activationRequiredMessage);
       }
@@ -642,30 +716,23 @@ class NotesLogic {
         emailRedirectTo: AppSupabase.emailRedirectTo,
       );
 
-      // Supabase deliberately obscures whether an email is already
-      // registered, to prevent account-enumeration attacks: for an
-      // existing, already-confirmed account it returns a user with an
-      // empty `identities` list and no session, rather than an error.
-      // This is the documented way to detect that case client-side -
-      // without it, this would silently fall through to the "check your
-      // email to confirm" path below even though no account was created
-      // and no email was sent.
-      if (response.user?.identities?.isEmpty ?? false) {
+      final decision = interpretSignUpResponse(
+        response: response,
+        currentUser: currentUser,
+      );
+
+      if (decision.alreadyRegistered) {
         throw Exception(
           'That email is already registered. Try logging in, or use '
           '"Forgot password" if you don\'t remember your password.',
         );
       }
 
-      final signedUpUser = response.user ?? currentUser;
-      if (!isUserEmailConfirmed(signedUpUser)) {
-        if (response.session != null || currentUser != null) {
-          await _client.auth.signOut();
-        }
-        return false;
+      if (decision.shouldSignOut) {
+        await _client.auth.signOut();
       }
 
-      if (response.session != null || currentUser != null) {
+      if (decision.completed) {
         await ensureProfileForCurrentUser(preferredUsername: normalized);
         return true;
       }
