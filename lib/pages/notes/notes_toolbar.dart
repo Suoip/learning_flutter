@@ -48,27 +48,17 @@ class NotesToolbar extends StatelessWidget {
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
               color: cs.surface,
-              borderRadius: BorderRadius.circular(18),
-              border:
-                  Border.all(color: cs.outlineVariant.withValues(alpha: 0.55)),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: cs.outlineVariant),
             ),
             child: Row(
               children: [
                 Expanded(
                   child: TextField(
                     controller: searchController,
-                    decoration: InputDecoration(
+                    decoration: const InputDecoration(
                       hintText: 'Search by title',
-                      prefixIcon: const Icon(Icons.search_rounded),
-                      filled: true,
-                      fillColor:
-                          cs.surfaceContainerHighest.withValues(alpha: 0.45),
-                      contentPadding:
-                          const EdgeInsets.symmetric(horizontal: 14),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(14),
-                        borderSide: BorderSide.none,
-                      ),
+                      prefixIcon: Icon(Icons.search_rounded),
                     ),
                   ),
                 ),

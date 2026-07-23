@@ -393,17 +393,18 @@ class _NotesPageState extends State<NotesPage> {
     }
 
     if (_notesError != null) {
+      final cs = Theme.of(context).colorScheme;
       return ListView(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(20),
         children: [
           Card(
-            color: Colors.red.shade50,
+            color: cs.errorContainer,
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Text(
                 'Failed to load notes:\n$_notesError',
-                style: TextStyle(color: Colors.red.shade800),
+                style: TextStyle(color: cs.onErrorContainer),
               ),
             ),
           ),
@@ -412,30 +413,33 @@ class _NotesPageState extends State<NotesPage> {
     }
 
     if (notes.isEmpty) {
-      final cs = Theme.of(context).colorScheme;
+      final theme = Theme.of(context);
+      final cs = theme.colorScheme;
       return ListView(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(20, 60, 20, 120),
         children: [
           Card(
-            elevation: 0,
             color: cs.surfaceContainerHighest,
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
-            child: const Padding(
-              padding: EdgeInsets.all(24),
+            child: Padding(
+              padding: const EdgeInsets.all(24),
               child: Column(
                 children: [
-                  Icon(Icons.sticky_note_2_outlined, size: 40),
-                  SizedBox(height: 12),
+                  Icon(
+                    Icons.sticky_note_2_outlined,
+                    size: 40,
+                    color: cs.primary,
+                  ),
+                  const SizedBox(height: 12),
                   Text(
                     'No notes yet',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                    style: theme.textTheme.headlineSmall,
                   ),
-                  SizedBox(height: 6),
+                  const SizedBox(height: 6),
                   Text(
                     'Create your first note to get started.',
                     textAlign: TextAlign.center,
+                    style: theme.textTheme.bodyLarge,
                   ),
                 ],
               ),
@@ -489,7 +493,6 @@ class _NotesPageState extends State<NotesPage> {
       backgroundColor: cs.surfaceContainerLowest,
       appBar: AppBar(
         title: const Text('Notes'),
-        scrolledUnderElevation: 0,
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 2),

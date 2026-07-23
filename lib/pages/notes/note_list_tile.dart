@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../resources_and_services/notes_logic.dart';
+import '../../theme/app_colors.dart';
 
 class NoteListTile extends StatelessWidget {
   const NoteListTile({
@@ -28,7 +29,8 @@ class NoteListTile extends StatelessWidget {
         ? 'No additional text'
         : note.content.trim().replaceAll('\n', ' ');
     final updatedText = NotesLogic.formatUpdatedTime(note.updatedAt);
-    final cs = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
 
     return Dismissible(
       key: ValueKey(note.id),
@@ -37,21 +39,15 @@ class NoteListTile extends StatelessWidget {
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.symmetric(horizontal: 20),
         decoration: BoxDecoration(
-          color: Colors.red.shade400,
-          borderRadius: BorderRadius.circular(18),
+          color: cs.errorContainer,
+          borderRadius: BorderRadius.circular(20),
         ),
-        child: const Icon(Icons.delete_outline_rounded, color: Colors.white),
+        child: Icon(Icons.delete_outline_rounded, color: cs.onErrorContainer),
       ),
       confirmDismiss: (_) => onConfirmDismiss(),
       child: Card(
-        elevation: 0,
-        color: cs.surface,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(18),
-          side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.55)),
-        ),
         child: InkWell(
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(20),
           onTap: onTap,
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 14, 8, 14),
@@ -64,10 +60,10 @@ class NoteListTile extends StatelessWidget {
                       child: Row(
                         children: [
                           if (note.isPinned) ...[
-                            const Icon(
+                            Icon(
                               Icons.push_pin_rounded,
                               size: 16,
-                              color: Colors.deepOrange,
+                              color: cs.primary,
                             ),
                             const SizedBox(width: 6),
                           ],
@@ -76,10 +72,7 @@ class NoteListTile extends StatelessWidget {
                               note.title,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 17,
-                                fontWeight: FontWeight.w700,
-                              ),
+                              style: theme.textTheme.titleMedium,
                             ),
                           ),
                         ],
@@ -93,7 +86,7 @@ class NoteListTile extends StatelessWidget {
                             ? Icons.star_rounded
                             : Icons.star_outline_rounded,
                         color: note.isFavorite
-                            ? Colors.amber.shade700
+                            ? AppColors.favoriteAccent
                             : cs.onSurfaceVariant,
                       ),
                     ),
@@ -104,9 +97,7 @@ class NoteListTile extends StatelessWidget {
                         note.isPinned
                             ? Icons.push_pin_rounded
                             : Icons.push_pin_outlined,
-                        color: note.isPinned
-                            ? Colors.deepOrange
-                            : cs.onSurfaceVariant,
+                        color: note.isPinned ? cs.primary : cs.onSurfaceVariant,
                       ),
                     ),
                     IconButton(
@@ -118,26 +109,18 @@ class NoteListTile extends StatelessWidget {
                         isPublished
                             ? Icons.public_rounded
                             : Icons.public_outlined,
-                        color: isPublished
-                            ? Colors.teal.shade600
-                            : cs.onSurfaceVariant,
+                        color: isPublished ? cs.tertiary : cs.onSurfaceVariant,
                       ),
                     ),
                   ],
                 ),
-                Text(
-                  updatedText,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: cs.onSurfaceVariant,
-                  ),
-                ),
+                Text(updatedText, style: theme.textTheme.bodySmall),
                 const SizedBox(height: 8),
                 Text(
                   preview,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(color: cs.onSurfaceVariant, height: 1.3),
+                  style: theme.textTheme.bodyMedium,
                 ),
                 if (isPublished) ...[
                   const SizedBox(height: 8),

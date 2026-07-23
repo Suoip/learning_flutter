@@ -10,6 +10,7 @@ import 'pages/stopwatch_page.dart' as stopwatch_page;
 import 'pages/worldtime_page.dart' as time_page;
 import 'resources_and_services/loading.dart';
 import 'resources_and_services/supabase_client.dart';
+import 'theme/app_theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -58,6 +59,8 @@ class _LearningFlutterAppState extends State<LearningFlutterApp> {
     return MaterialApp(
       navigatorKey: _navigatorKey,
       debugShowCheckedModeBanner: false,
+      theme: AppTheme.dark,
+      themeMode: ThemeMode.dark,
       home: const ProjectsHomePage(),
       routes: {
         '/home': (context) => const time_page.Home(),
