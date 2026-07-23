@@ -23,6 +23,7 @@ Run this SQL in your Supabase project SQL editor:
 2. Auth -> URL Configuration:
    - Add your confirmation redirect URL to **Redirect URLs**.
    - Use the same URL in app env as `SUPABASE_EMAIL_REDIRECT_TO`.
+   - This needs a separate entry **per platform**: the web dev/prod URLs, and also the mobile deep-link scheme from the Makefile's `MOBILE_EMAIL_REDIRECT_TO` (default `com.example.new_project://login-callback`, used automatically by `make build-apk`) - without this allow-listed too, password-reset/signup-confirmation links opened from the Android app will fail.
 3. Auth -> Templates -> Confirm signup:
    - Keep `{{ .ConfirmationURL }}` in the template body.
 4. App flow:
