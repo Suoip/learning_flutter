@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'feed_data_source.dart';
 import 'friends_data_source.dart';
 import 'notes_data_source.dart';
 import 'profiles_data_source.dart';
@@ -137,6 +138,7 @@ class SharedNoteFeedItem {
     required this.likeCount,
     required this.commentCount,
     required this.isLikedByCurrentUser,
+    required this.isOwnPost,
   });
 
   final String id;
@@ -150,6 +152,7 @@ class SharedNoteFeedItem {
   final int likeCount;
   final int commentCount;
   final bool isLikedByCurrentUser;
+  final bool isOwnPost;
 }
 
 class FeedCommentItem {
@@ -178,10 +181,12 @@ class NotesLogic {
     NotesDataSource? notesDataSource,
     ProfilesDataSource? profilesDataSource,
     FriendsDataSource? friendsDataSource,
+    FeedDataSource? feedDataSource,
   })  : _explicitClient = client,
         _explicitNotesDataSource = notesDataSource,
         _explicitProfilesDataSource = profilesDataSource,
-        _explicitFriendsDataSource = friendsDataSource;
+        _explicitFriendsDataSource = friendsDataSource,
+        _explicitFeedDataSource = feedDataSource;
 
   final SupabaseClient? _explicitClient;
 
@@ -204,6 +209,10 @@ class NotesLogic {
   final FriendsDataSource? _explicitFriendsDataSource;
   late final FriendsDataSource _friendsDataSource =
       _explicitFriendsDataSource ?? SupabaseFriendsDataSource(_client);
+
+  final FeedDataSource? _explicitFeedDataSource;
+  late final FeedDataSource _feedDataSource =
+      _explicitFeedDataSource ?? SupabaseFeedDataSource(_client);
   static const String activationRequiredMessage =
       'Please confirm your email to activate your account.';
 
@@ -924,8 +933,8 @@ class NotesLogic {
   }
 
   Future<void> publishNoteToFriends(NoteItem note) async {
-    final user = currentUser;
-    if (user == null) {
+    final userId = _feedDataSource.currentUserId;
+    if (userId == null) {
       throw Exception('You are not logged in.');
     }
 
@@ -934,59 +943,69 @@ class NotesLogic {
       throw Exception('Add at least one friend before publishing notes.');
     }
 
-    final rows = friends
+    final sharedNote = await _feedDataSource.upsertSharedNote({
+      'note_id': note.id,
+      'author_id': userId,
+      'title': note.title,
+      'content': note.content,
+      'published_at': DateTime.now().toUtc().toIso8601String(),
+    });
+    final sharedNoteId = sharedNote['id'].toString();
+
+    final recipientRows = friends
         .map((friend) => {
-              'note_id': note.id,
-              'author_id': user.id,
+              'shared_note_id': sharedNoteId,
               'recipient_id': friend.friend.id,
-              'title': note.title,
-              'content': note.content,
-              'published_at': DateTime.now().toUtc().toIso8601String(),
             })
         .toList();
-
-    await _client.from('shared_notes').upsert(
-          rows,
-          onConflict: 'note_id,author_id,recipient_id',
-        );
+    await _feedDataSource.upsertSharedNoteRecipients(recipientRows);
   }
 
   Future<void> unpublishNoteFromFriends(String noteId) async {
-    final user = currentUser;
-    if (user == null) return;
-    await _client
-        .from('shared_notes')
-        .delete()
-        .eq('note_id', noteId)
-        .eq('author_id', user.id);
+    final userId = _feedDataSource.currentUserId;
+    if (userId == null) return;
+    await _feedDataSource.deleteSharedNoteByNoteAndAuthor(
+      noteId: noteId,
+      authorId: userId,
+    );
   }
 
   Future<Set<String>> fetchPublishedNoteIdsForCurrentUser() async {
-    final user = currentUser;
-    if (user == null) return {};
+    final userId = _feedDataSource.currentUserId;
+    if (userId == null) return {};
 
-    final rows = await _client
-        .from('shared_notes')
-        .select('note_id')
-        .eq('author_id', user.id);
-
-    return (rows as List<dynamic>)
-        .map((row) => row['note_id'].toString())
-        .toSet();
+    final rows =
+        await _feedDataSource.selectPublishedNoteIdRowsForAuthor(userId);
+    return rows.map((row) => row['note_id'].toString()).toSet();
   }
 
   Future<List<SharedNoteFeedItem>> fetchFriendsFeed() async {
-    final user = currentUser;
-    if (user == null) return [];
+    final userId = _feedDataSource.currentUserId;
+    if (userId == null) return [];
 
-    final rows = await _client
-        .from('shared_notes')
-        .select('id,note_id,author_id,title,content,published_at')
-        .eq('recipient_id', user.id)
-        .order('published_at', ascending: false)
-        .limit(100);
+    final authoredRows =
+        await _feedDataSource.selectSharedNotesAuthoredBy(userId);
+    final recipientIds =
+        await _feedDataSource.selectSharedNoteIdsForRecipient(userId);
+    final sharedRows = recipientIds.isEmpty
+        ? <Map<String, dynamic>>[]
+        : await _feedDataSource.selectSharedNotesByIds(recipientIds);
 
-    final items = (rows as List<dynamic>).cast<Map<String, dynamic>>();
+    // Merge through a map keyed by id rather than a naive concat: authored
+    // and shared-to-me rows are supposed to be disjoint (you're never your
+    // own recipient), but nothing at the DB level enforces that, so this
+    // guards against a duplicate card if it ever weren't.
+    final byId = <String, Map<String, dynamic>>{};
+    for (final row in [...authoredRows, ...sharedRows]) {
+      byId[row['id'].toString()] = row;
+    }
+    final merged = byId.values.toList()
+      ..sort(
+        (a, b) => b['published_at']
+            .toString()
+            .compareTo(a['published_at'].toString()),
+      );
+    final items = merged.take(100).toList();
     if (items.isEmpty) return [];
 
     final authorIds =
@@ -994,29 +1013,26 @@ class NotesLogic {
     final profiles = await _loadProfiles(authorIds);
     final sharedIds = items.map((e) => e['id'].toString()).toList();
 
-    final likesRows = await _client
-        .from('shared_note_likes')
-        .select('shared_note_id,user_id')
-        .inFilter('shared_note_id', sharedIds);
-    final commentsRows = await _client
-        .from('shared_note_comments')
-        .select('shared_note_id')
-        .inFilter('shared_note_id', sharedIds);
+    final likesRows = await _feedDataSource.selectLikesForSharedNoteIds(
+      sharedIds,
+    );
+    final commentCountRows =
+        await _feedDataSource.selectCommentCountRowsForSharedNoteIds(
+      sharedIds,
+    );
 
     final likeCounts = <String, int>{};
     final commentCounts = <String, int>{};
     final likedByCurrentUser = <String>{};
 
-    for (final row
-        in (likesRows as List<dynamic>).cast<Map<String, dynamic>>()) {
+    for (final row in likesRows) {
       final sharedId = row['shared_note_id'].toString();
       likeCounts[sharedId] = (likeCounts[sharedId] ?? 0) + 1;
-      if (row['user_id'].toString() == user.id) {
+      if (row['user_id'].toString() == userId) {
         likedByCurrentUser.add(sharedId);
       }
     }
-    for (final row
-        in (commentsRows as List<dynamic>).cast<Map<String, dynamic>>()) {
+    for (final row in commentCountRows) {
       final sharedId = row['shared_note_id'].toString();
       commentCounts[sharedId] = (commentCounts[sharedId] ?? 0) + 1;
     }
@@ -1037,48 +1053,40 @@ class NotesLogic {
         likeCount: likeCounts[sharedId] ?? 0,
         commentCount: commentCounts[sharedId] ?? 0,
         isLikedByCurrentUser: likedByCurrentUser.contains(sharedId),
+        isOwnPost: authorId == userId,
       );
     }).toList();
   }
 
   Future<void> toggleFeedLike(String sharedNoteId) async {
-    final user = currentUser;
-    if (user == null) return;
+    final userId = _feedDataSource.currentUserId;
+    if (userId == null) return;
 
-    final existing = await _client
-        .from('shared_note_likes')
-        .select('shared_note_id,user_id')
-        .eq('shared_note_id', sharedNoteId)
-        .eq('user_id', user.id)
-        .maybeSingle();
+    final existing = await _feedDataSource.selectLike(
+      sharedNoteId: sharedNoteId,
+      userId: userId,
+    );
 
     if (existing == null) {
-      await _client.from('shared_note_likes').insert({
-        'shared_note_id': sharedNoteId,
-        'user_id': user.id,
-      });
+      await _feedDataSource.insertLike(
+        sharedNoteId: sharedNoteId,
+        userId: userId,
+      );
     } else {
-      await _client
-          .from('shared_note_likes')
-          .delete()
-          .eq('shared_note_id', sharedNoteId)
-          .eq('user_id', user.id);
+      await _feedDataSource.deleteLike(
+        sharedNoteId: sharedNoteId,
+        userId: userId,
+      );
     }
   }
 
   Future<List<FeedCommentItem>> fetchFeedComments(String sharedNoteId) async {
-    final rows = await _client
-        .from('shared_note_comments')
-        .select('id,shared_note_id,user_id,content,created_at')
-        .eq('shared_note_id', sharedNoteId)
-        .order('created_at');
-
-    final items = (rows as List<dynamic>).cast<Map<String, dynamic>>();
-    final authorIds =
-        items.map((e) => e['user_id'].toString()).toSet().toList();
+    final rows =
+        await _feedDataSource.selectCommentsForSharedNote(sharedNoteId);
+    final authorIds = rows.map((e) => e['user_id'].toString()).toSet().toList();
     final profiles = await _loadProfiles(authorIds);
 
-    return items.map((row) {
+    return rows.map((row) {
       final authorId = row['user_id'].toString();
       final author = profiles[authorId];
       return FeedCommentItem(
@@ -1097,8 +1105,8 @@ class NotesLogic {
     required String sharedNoteId,
     required String content,
   }) async {
-    final user = currentUser;
-    if (user == null) {
+    final userId = _feedDataSource.currentUserId;
+    if (userId == null) {
       throw Exception('You are not logged in.');
     }
     final trimmed = content.trim();
@@ -1108,9 +1116,9 @@ class NotesLogic {
     if (trimmed.length > 500) {
       throw Exception('Comment is too long (max 500 characters).');
     }
-    await _client.from('shared_note_comments').insert({
+    await _feedDataSource.insertComment({
       'shared_note_id': sharedNoteId,
-      'user_id': user.id,
+      'user_id': userId,
       'content': trimmed,
     });
   }
