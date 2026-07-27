@@ -6,6 +6,7 @@ import 'smart_academy_activation_required_page.dart';
 import 'smart_academy_auth_page.dart';
 import 'smart_academy_detail_page.dart';
 import 'smart_academy_entry.dart';
+import 'smart_academy_not_an_educator_page.dart';
 
 /// SmartAcademy's main hub: a YouTube-style grid of placeholder education
 /// videos, plus a separate forum-style section of text-only posts. Static
@@ -60,6 +61,26 @@ class _SmartAcademyPageState extends State<SmartAcademyPage> {
       await Navigator.of(context).push(
         MaterialPageRoute(
           builder: (_) => SmartAcademyActivationRequiredPage(
+            onSignOut: () async {
+              await _logic.signOut();
+              if (!mounted) return;
+              Navigator.of(context).pop();
+            },
+          ),
+        ),
+      );
+      if (!mounted) return;
+      setState(() {});
+      return;
+    }
+
+    final isEducator = await _logic.hasEducatorAccount();
+    if (!mounted) return;
+
+    if (!isEducator) {
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => SmartAcademyNotAnEducatorPage(
             onSignOut: () async {
               await _logic.signOut();
               if (!mounted) return;

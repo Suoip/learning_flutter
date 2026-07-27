@@ -161,10 +161,30 @@ class EducatorLogic {
   static const String activationRequiredMessage =
       'Please confirm your email to activate your educator account.';
 
+  static const String notAnEducatorMessage =
+      "This account isn't registered as an educator. Please sign out and "
+      'register a new educator account to continue.';
+
   User? get currentUser => _client.auth.currentUser;
 
   static bool isUserEmailConfirmed(User? user) =>
       auth_response.isUserEmailConfirmed(user);
+
+  /// Whether the current session actually has a `public.educators` row -
+  /// deliberately a plain existence check, not [ensureEducatorForCurrentUser]
+  /// (which would auto-create the row and silently defeat the point of this
+  /// check). Used to proactively gate the educator dashboard for sessions
+  /// that authenticated (e.g. via the shared-email-collision sign-in path)
+  /// but were never actually registered as an educator.
+  Future<bool> hasEducatorAccount() async {
+    final user = _educatorProfileDataSource.currentUser;
+    if (user == null) return false;
+
+    final existing = await _educatorProfileDataSource.selectEducatorById(
+      user.id,
+    );
+    return existing != null;
+  }
 
   static bool shouldRejectSignIn({
     required AuthResponse response,
