@@ -107,6 +107,54 @@ void main() {
       });
     });
 
+    group('findEducatorByUsername', () {
+      test('is null for a blank username', () async {
+        expect(await logic.findEducatorByUsername('  '), isNull);
+      });
+
+      test('is null for an invalid-format username', () async {
+        expect(await logic.findEducatorByUsername('a'), isNull);
+      });
+
+      test('is null when no educator matches', () async {
+        expect(await logic.findEducatorByUsername('someone'), isNull);
+      });
+
+      test('returns the matching educator profile', () async {
+        dataSource.rows.add({
+          'id': 'other-user',
+          'username': 'bob',
+          'avatar_url': 'https://example.com/bob.png',
+        });
+
+        final profile = await logic.findEducatorByUsername('Bob');
+
+        expect(profile, isNotNull);
+        expect(profile!.id, 'other-user');
+        expect(profile.username, 'bob');
+        expect(profile.avatarUrl, 'https://example.com/bob.png');
+      });
+    });
+
+    group('fetchEducatorProfileById', () {
+      test('throws when no educator exists for the id', () {
+        expect(
+          () => logic.fetchEducatorProfileById('missing-id'),
+          throwsException,
+        );
+      });
+
+      test('returns the matching educator profile', () async {
+        dataSource.rows.add({'id': 'other-user', 'username': 'bob'});
+
+        final profile = await logic.fetchEducatorProfileById('other-user');
+
+        expect(profile.id, 'other-user');
+        expect(profile.username, 'bob');
+        expect(profile.avatarUrl, isNull);
+      });
+    });
+
     group('fetchCurrentEducatorProfile', () {
       test('throws when signed out', () {
         dataSource.currentUser = null;

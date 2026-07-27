@@ -27,6 +27,15 @@ class FakeEducatorProfileDataSource implements EducatorProfileDataSource {
   }
 
   @override
+  Future<Map<String, dynamic>?> selectEducatorByUsername(
+    String username,
+  ) async {
+    final index = rows.indexWhere((row) => row['username'] == username);
+    if (index == -1) return null;
+    return Map<String, dynamic>.from(rows[index]);
+  }
+
+  @override
   Future<void> insertEducator(Map<String, dynamic> values) async {
     rows.add(Map<String, dynamic>.from(values));
   }

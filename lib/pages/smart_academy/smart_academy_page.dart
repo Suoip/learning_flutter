@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../resources_and_services/educator_logic.dart';
 import 'educator_dashboard_page.dart';
+import 'educator_search_bar.dart';
 import 'smart_academy_activation_required_page.dart';
 import 'smart_academy_auth_page.dart';
 import 'smart_academy_detail_page.dart';
@@ -133,6 +134,8 @@ class _SmartAcademyPageState extends State<SmartAcademyPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            const EducatorSearchBar(),
+            const SizedBox(height: 24),
             Text('Videos', style: theme.textTheme.titleLarge),
             const SizedBox(height: 12),
             LayoutBuilder(
