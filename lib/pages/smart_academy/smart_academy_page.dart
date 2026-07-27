@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../resources_and_services/educator_logic.dart';
-import 'educator_dashboard_placeholder_page.dart';
+import 'educator_dashboard_page.dart';
 import 'smart_academy_activation_required_page.dart';
 import 'smart_academy_auth_page.dart';
 import 'smart_academy_detail_page.dart';
@@ -75,7 +75,7 @@ class _SmartAcademyPageState extends State<SmartAcademyPage> {
 
     await Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => EducatorDashboardPlaceholderPage(
+        builder: (_) => EducatorDashboardPage(
           username: EducatorLogic.defaultUsernameForUser(user),
           onSignOut: () async {
             await _logic.signOut();

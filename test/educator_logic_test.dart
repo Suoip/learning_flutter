@@ -149,6 +149,23 @@ void main() {
         );
       });
 
+      test(
+          'maps a foreign-key violation (code: 23503) to a not-an-educator '
+          'message - this is what a Notes-only account (routed here via '
+          'the shared-email-collision sign-in path) hits when it tries to '
+          'create a video without a public.educators row', () {
+        expect(
+          EducatorLogic.userMessageForError(
+            const PostgrestException(
+              message: 'violates foreign key constraint',
+              code: '23503',
+            ),
+          ),
+          'Your account is not registered as an educator yet. Try signing '
+          'out and registering with a different email.',
+        );
+      });
+
       test('uses the fallback for other codes', () {
         expect(
           EducatorLogic.userMessageForError(
