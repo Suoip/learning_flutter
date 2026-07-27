@@ -1,6 +1,7 @@
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'educator_forum_posts_data_source.dart';
 import 'educator_videos_data_source.dart';
 import 'supabase_auth_response_helpers.dart' as auth_response;
 import 'supabase_client.dart';
@@ -50,6 +51,44 @@ class EducatorVideoItem {
   }
 }
 
+/// A single educator-authored forum post - title and body text only, no
+/// video.
+class ForumPostItem {
+  const ForumPostItem({
+    required this.id,
+    required this.title,
+    required this.description,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+
+  final String id;
+  final String title;
+  final String description;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+
+  factory ForumPostItem.fromMap(Map<String, dynamic> map) {
+    final createdValue = map['created_at'];
+    final createdAt = createdValue == null
+        ? DateTime.now().toUtc()
+        : DateTime.parse(createdValue.toString()).toUtc();
+
+    final updatedValue = map['updated_at'] ?? map['created_at'];
+    final updatedAt = updatedValue == null
+        ? createdAt
+        : DateTime.parse(updatedValue.toString()).toUtc();
+
+    return ForumPostItem(
+      id: map['id'].toString(),
+      title: (map['title'] ?? '').toString(),
+      description: (map['description'] ?? '').toString(),
+      createdAt: createdAt,
+      updatedAt: updatedAt,
+    );
+  }
+}
+
 /// Auth + video-content CRUD for SmartAcademy's educator accounts.
 /// Deliberately independent of NotesLogic/the `profiles` table: educators
 /// live in their own `public.educators` table, tagged apart from Notes
@@ -61,8 +100,10 @@ class EducatorLogic {
   EducatorLogic({
     SupabaseClient? client,
     EducatorVideosDataSource? educatorVideosDataSource,
+    EducatorForumPostsDataSource? educatorForumPostsDataSource,
   })  : _explicitClient = client,
-        _explicitEducatorVideosDataSource = educatorVideosDataSource;
+        _explicitEducatorVideosDataSource = educatorVideosDataSource,
+        _explicitEducatorForumPostsDataSource = educatorForumPostsDataSource;
 
   final SupabaseClient? _explicitClient;
   late final SupabaseClient _client = _explicitClient ?? AppSupabase.client;
@@ -71,6 +112,11 @@ class EducatorLogic {
   late final EducatorVideosDataSource _educatorVideosDataSource =
       _explicitEducatorVideosDataSource ??
           SupabaseEducatorVideosDataSource(_client);
+
+  final EducatorForumPostsDataSource? _explicitEducatorForumPostsDataSource;
+  late final EducatorForumPostsDataSource _educatorForumPostsDataSource =
+      _explicitEducatorForumPostsDataSource ??
+          SupabaseEducatorForumPostsDataSource(_client);
 
   static const String activationRequiredMessage =
       'Please confirm your email to activate your educator account.';
@@ -404,5 +450,59 @@ class EducatorLogic {
 
   Future<void> deleteVideo(String videoId) async {
     await _educatorVideosDataSource.deleteVideoById(videoId);
+  }
+
+  static List<ForumPostItem> _sortForumPostsNewestFirst(
+    List<ForumPostItem> posts,
+  ) {
+    final sorted = [...posts];
+    sorted.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    return sorted;
+  }
+
+  Future<List<ForumPostItem>> fetchForumPostsForCurrentEducator() async {
+    final educatorId = _educatorForumPostsDataSource.currentUserId;
+    if (educatorId == null) return [];
+
+    final rows = await _educatorForumPostsDataSource.selectForumPosts(
+      educatorId: educatorId,
+    );
+    final posts = rows.map((row) => ForumPostItem.fromMap(row)).toList();
+
+    return _sortForumPostsNewestFirst(posts);
+  }
+
+  Future<ForumPostItem> createForumPost({
+    required String title,
+    required String description,
+  }) async {
+    final educatorId = _educatorForumPostsDataSource.currentUserId;
+    if (educatorId == null) {
+      throw Exception('You are not logged in.');
+    }
+
+    final inserted = await _educatorForumPostsDataSource.insertForumPost({
+      'educator_id': educatorId,
+      'title': title.trim(),
+      'description': description.trim(),
+    });
+
+    return ForumPostItem.fromMap(inserted);
+  }
+
+  Future<void> updateForumPost({
+    required String postId,
+    required String title,
+    required String description,
+  }) async {
+    await _educatorForumPostsDataSource.updateForumPostById(postId, {
+      'title': title.trim(),
+      'description': description.trim(),
+      'updated_at': DateTime.now().toUtc().toIso8601String(),
+    });
+  }
+
+  Future<void> deleteForumPost(String postId) async {
+    await _educatorForumPostsDataSource.deleteForumPostById(postId);
   }
 }
