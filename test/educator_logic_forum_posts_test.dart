@@ -72,6 +72,35 @@ void main() {
       });
     });
 
+    group('fetchForumPostsForEducator', () {
+      test('fetches by the given id regardless of the current session',
+          () async {
+        dataSource.rows.addAll([
+          {
+            'id': 'post-a',
+            'educator_id': 'educator-1',
+            'title': 'Mine',
+            'description': '',
+            'updated_at': '2024-01-01T00:00:00.000Z',
+            'created_at': '2024-01-01T00:00:00.000Z',
+          },
+          {
+            'id': 'post-b',
+            'educator_id': 'educator-2',
+            'title': "Someone else's",
+            'description': '',
+            'updated_at': '2024-01-01T00:00:00.000Z',
+            'created_at': '2024-01-01T00:00:00.000Z',
+          },
+        ]);
+
+        dataSource.currentUserId = null;
+        final posts = await logic.fetchForumPostsForEducator('educator-2');
+
+        expect(posts.map((p) => p.id), ['post-b']);
+      });
+    });
+
     group('createForumPost', () {
       test('throws when signed out', () {
         dataSource.currentUserId = null;

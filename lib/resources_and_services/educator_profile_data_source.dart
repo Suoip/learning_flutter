@@ -19,6 +19,8 @@ abstract class EducatorProfileDataSource {
 
   Future<Map<String, dynamic>?> selectEducatorById(String id);
 
+  Future<Map<String, dynamic>?> selectEducatorByUsername(String username);
+
   Future<void> insertEducator(Map<String, dynamic> values);
 
   Future<void> updateEducatorById(String id, Map<String, dynamic> values);
@@ -52,6 +54,15 @@ class SupabaseEducatorProfileDataSource implements EducatorProfileDataSource {
   @override
   Future<Map<String, dynamic>?> selectEducatorById(String id) {
     return _client.from(_table).select(_columns).eq('id', id).maybeSingle();
+  }
+
+  @override
+  Future<Map<String, dynamic>?> selectEducatorByUsername(String username) {
+    return _client
+        .from(_table)
+        .select(_columns)
+        .eq('username', username)
+        .maybeSingle();
   }
 
   @override

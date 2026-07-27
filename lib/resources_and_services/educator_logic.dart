@@ -186,6 +186,44 @@ class EducatorLogic {
     return existing != null;
   }
 
+  /// Looks up any educator by username - a plain public lookup, not scoped
+  /// to the current session. Returns null (never throws) when the input is
+  /// blank/invalid or no educator matches - this is a user-facing
+  /// "not found" case for a search box, not an error.
+  Future<EducatorProfile?> findEducatorByUsername(String username) async {
+    final normalized = username.trim().toLowerCase();
+    if (!isValidUsername(normalized)) return null;
+
+    final row = await _educatorProfileDataSource.selectEducatorByUsername(
+      normalized,
+    );
+    if (row == null) return null;
+
+    return EducatorProfile(
+      id: (row['id'] ?? '').toString(),
+      username: (row['username'] ?? '').toString().trim().toLowerCase(),
+      avatarUrl: (row['avatar_url'] as String?)?.trim(),
+    );
+  }
+
+  /// Fetches any educator's public profile by id - an internal loader for
+  /// the channel page, which only ever calls this with an id it already
+  /// trusts to exist. Throws if no such educator is found.
+  Future<EducatorProfile> fetchEducatorProfileById(String educatorId) async {
+    final row = await _educatorProfileDataSource.selectEducatorById(
+      educatorId,
+    );
+    if (row == null) {
+      throw Exception('Educator not found.');
+    }
+
+    return EducatorProfile(
+      id: educatorId,
+      username: (row['username'] ?? '').toString().trim().toLowerCase(),
+      avatarUrl: (row['avatar_url'] as String?)?.trim(),
+    );
+  }
+
   static bool shouldRejectSignIn({
     required AuthResponse response,
     required User? currentUser,
@@ -547,6 +585,13 @@ class EducatorLogic {
     final educatorId = _educatorVideosDataSource.currentUserId;
     if (educatorId == null) return [];
 
+    return fetchVideosForEducator(educatorId);
+  }
+
+  /// Fetches any educator's videos by id - used by the public channel page.
+  Future<List<EducatorVideoItem>> fetchVideosForEducator(
+    String educatorId,
+  ) async {
     final rows = await _educatorVideosDataSource.selectVideos(
       educatorId: educatorId,
     );
@@ -613,6 +658,14 @@ class EducatorLogic {
     final educatorId = _educatorForumPostsDataSource.currentUserId;
     if (educatorId == null) return [];
 
+    return fetchForumPostsForEducator(educatorId);
+  }
+
+  /// Fetches any educator's forum posts by id - used by the public channel
+  /// page.
+  Future<List<ForumPostItem>> fetchForumPostsForEducator(
+    String educatorId,
+  ) async {
     final rows = await _educatorForumPostsDataSource.selectForumPosts(
       educatorId: educatorId,
     );

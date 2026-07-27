@@ -75,6 +75,37 @@ void main() {
       });
     });
 
+    group('fetchVideosForEducator', () {
+      test('fetches by the given id regardless of the current session',
+          () async {
+        dataSource.rows.addAll([
+          {
+            'id': 'video-a',
+            'educator_id': 'educator-1',
+            'title': 'Mine',
+            'description': '',
+            'duration_label': null,
+            'updated_at': '2024-01-01T00:00:00.000Z',
+            'created_at': '2024-01-01T00:00:00.000Z',
+          },
+          {
+            'id': 'video-b',
+            'educator_id': 'educator-2',
+            'title': "Someone else's",
+            'description': '',
+            'duration_label': null,
+            'updated_at': '2024-01-01T00:00:00.000Z',
+            'created_at': '2024-01-01T00:00:00.000Z',
+          },
+        ]);
+
+        dataSource.currentUserId = null;
+        final videos = await logic.fetchVideosForEducator('educator-2');
+
+        expect(videos.map((v) => v.id), ['video-b']);
+      });
+    });
+
     group('createVideo', () {
       test('throws when signed out', () {
         dataSource.currentUserId = null;

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../resources_and_services/educator_logic.dart';
+import 'educator_channel_page.dart';
 import 'educator_forum_post_form_page.dart';
 import 'educator_profile_page.dart';
 import 'educator_video_form_page.dart';
@@ -62,6 +63,14 @@ class _EducatorDashboardPageState extends State<EducatorDashboardPage> {
 
   Future<void> _refreshAll() {
     return Future.wait([_loadVideos(), _loadForumPosts()]);
+  }
+
+  void _openPublicProfile() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => EducatorChannelPage(educatorId: _logic.currentUser!.id),
+      ),
+    );
   }
 
   Future<void> _loadVideos() async {
@@ -312,6 +321,11 @@ class _EducatorDashboardPageState extends State<EducatorDashboardPage> {
       appBar: AppBar(
         title: Text("$_username's Dashboard"),
         actions: [
+          IconButton(
+            tooltip: 'View public profile',
+            onPressed: _openPublicProfile,
+            icon: const Icon(Icons.public_rounded),
+          ),
           IconButton(
             tooltip: 'Profile',
             onPressed: _openProfile,
