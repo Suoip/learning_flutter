@@ -1,7 +1,10 @@
+import 'dart:typed_data';
+
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'educator_forum_posts_data_source.dart';
+import 'educator_profile_data_source.dart';
 import 'educator_videos_data_source.dart';
 import 'supabase_auth_response_helpers.dart' as auth_response;
 import 'supabase_client.dart';
@@ -89,6 +92,36 @@ class ForumPostItem {
   }
 }
 
+/// An educator's own profile: username + optional avatar. Mirrors
+/// `UserProfile` in notes_logic.dart.
+class EducatorProfile {
+  const EducatorProfile({
+    required this.id,
+    required this.username,
+    required this.avatarUrl,
+  });
+
+  final String id;
+  final String username;
+  final String? avatarUrl;
+
+  factory EducatorProfile.fromMap({
+    required User user,
+    required Map<String, dynamic> map,
+  }) {
+    final usernameFromRow =
+        (map['username'] ?? '').toString().trim().toLowerCase();
+
+    return EducatorProfile(
+      id: user.id,
+      username: usernameFromRow.isEmpty
+          ? EducatorLogic.defaultUsernameForUser(user)
+          : usernameFromRow,
+      avatarUrl: (map['avatar_url'] as String?)?.trim(),
+    );
+  }
+}
+
 /// Auth + video-content CRUD for SmartAcademy's educator accounts.
 /// Deliberately independent of NotesLogic/the `profiles` table: educators
 /// live in their own `public.educators` table, tagged apart from Notes
@@ -101,9 +134,11 @@ class EducatorLogic {
     SupabaseClient? client,
     EducatorVideosDataSource? educatorVideosDataSource,
     EducatorForumPostsDataSource? educatorForumPostsDataSource,
+    EducatorProfileDataSource? educatorProfileDataSource,
   })  : _explicitClient = client,
         _explicitEducatorVideosDataSource = educatorVideosDataSource,
-        _explicitEducatorForumPostsDataSource = educatorForumPostsDataSource;
+        _explicitEducatorForumPostsDataSource = educatorForumPostsDataSource,
+        _explicitEducatorProfileDataSource = educatorProfileDataSource;
 
   final SupabaseClient? _explicitClient;
   late final SupabaseClient _client = _explicitClient ?? AppSupabase.client;
@@ -117,6 +152,11 @@ class EducatorLogic {
   late final EducatorForumPostsDataSource _educatorForumPostsDataSource =
       _explicitEducatorForumPostsDataSource ??
           SupabaseEducatorForumPostsDataSource(_client);
+
+  final EducatorProfileDataSource? _explicitEducatorProfileDataSource;
+  late final EducatorProfileDataSource _educatorProfileDataSource =
+      _explicitEducatorProfileDataSource ??
+          SupabaseEducatorProfileDataSource(_client);
 
   static const String activationRequiredMessage =
       'Please confirm your email to activate your educator account.';
@@ -234,7 +274,7 @@ class EducatorLogic {
   }
 
   Future<void> ensureEducatorForCurrentUser({String? preferredUsername}) async {
-    final user = _client.auth.currentUser;
+    final user = _educatorProfileDataSource.currentUser;
     if (user == null) return;
 
     final safeUsername = _safeUsernameForUser(
@@ -242,27 +282,116 @@ class EducatorLogic {
       preferredUsername: preferredUsername,
     );
 
-    final existing = await _client
-        .from('educators')
-        .select('id,username')
-        .eq('id', user.id)
-        .maybeSingle();
+    final existing =
+        await _educatorProfileDataSource.selectEducatorById(user.id);
 
     if (existing != null) {
       final currentUsername =
           (existing['username'] ?? '').toString().trim().toLowerCase();
       if (currentUsername == safeUsername) return;
 
-      await _client
-          .from('educators')
-          .update({'username': safeUsername}).eq('id', user.id);
+      await _educatorProfileDataSource.updateEducatorById(user.id, {
+        'username': safeUsername,
+      });
       return;
     }
 
-    await _client.from('educators').insert({
+    await _educatorProfileDataSource.insertEducator({
       'id': user.id,
       'username': safeUsername,
+      'avatar_url': null,
     });
+  }
+
+  Future<EducatorProfile> fetchCurrentEducatorProfile() async {
+    final user = _educatorProfileDataSource.currentUser;
+    if (user == null) {
+      throw Exception('You are not logged in.');
+    }
+
+    await ensureEducatorForCurrentUser();
+
+    final row = await _educatorProfileDataSource.selectEducatorById(user.id);
+    if (row == null) {
+      throw Exception('Profile not found.');
+    }
+
+    return EducatorProfile.fromMap(user: user, map: row);
+  }
+
+  Future<EducatorProfile> updateUsername(String username) async {
+    final user = _educatorProfileDataSource.currentUser;
+    if (user == null) {
+      throw Exception('You are not logged in.');
+    }
+
+    final normalized = username.trim().toLowerCase();
+    if (!isValidUsername(normalized)) {
+      throw Exception('Use 3-30 chars: letters, numbers, _, -, .');
+    }
+
+    try {
+      await _client.auth.updateUser(
+        UserAttributes(data: {'username': normalized}),
+      );
+    } on AuthException catch (error) {
+      throw Exception(userMessageForError(error));
+    }
+
+    await _educatorProfileDataSource.upsertEducator({
+      'id': user.id,
+      'username': normalized,
+    }, onConflict: 'id');
+
+    return fetchCurrentEducatorProfile();
+  }
+
+  static String extensionFromFileName(String fileName) {
+    final normalized = fileName.trim().toLowerCase();
+    final dotIndex = normalized.lastIndexOf('.');
+    final rawExtension =
+        dotIndex > -1 ? normalized.substring(dotIndex + 1) : 'jpg';
+    final extension = rawExtension.replaceAll(RegExp(r'[^a-z0-9]'), '');
+    return extension.isEmpty ? 'jpg' : extension;
+  }
+
+  Future<EducatorProfile> uploadEducatorAvatar({
+    required Uint8List bytes,
+    required String extension,
+  }) async {
+    final user = _educatorProfileDataSource.currentUser;
+    if (user == null) {
+      throw Exception('You are not logged in.');
+    }
+
+    final normalizedExtension = extension.trim().toLowerCase();
+    final isValidExtension =
+        RegExp(r'^[a-z0-9]{2,5}$').hasMatch(normalizedExtension);
+    if (!isValidExtension) {
+      throw Exception('Unsupported file extension.');
+    }
+
+    final objectPath = '${user.id}/avatar.$normalizedExtension';
+    final publicUrl =
+        await _educatorProfileDataSource.uploadAvatarAndGetPublicUrl(
+      objectPath: objectPath,
+      bytes: bytes,
+    );
+
+    final timestamp = DateTime.now().toUtc().millisecondsSinceEpoch;
+    final avatarUrl = '$publicUrl?v=$timestamp';
+
+    // A plain update, not an upsert: the educator row is always created
+    // before this screen is reachable (see ensureEducatorForCurrentUser),
+    // and upserting here without `username` fails, since Postgres
+    // validates the hypothetical INSERT half of an upsert - including
+    // NOT NULL columns not present in the payload - before it even checks
+    // for a conflict to fall back to UPDATE.
+    await _educatorProfileDataSource.updateEducatorById(user.id, {
+      'avatar_url': avatarUrl,
+    });
+
+    return fetchCurrentEducatorProfile();
   }
 
   Future<void> signOut() async => _client.auth.signOut();

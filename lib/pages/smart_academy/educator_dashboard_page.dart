@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../resources_and_services/educator_logic.dart';
 import 'educator_forum_post_form_page.dart';
+import 'educator_profile_page.dart';
 import 'educator_video_form_page.dart';
 
 /// Post-login landing page for educators: lists the signed-in educator's
@@ -29,6 +30,8 @@ class EducatorDashboardPage extends StatefulWidget {
 class _EducatorDashboardPageState extends State<EducatorDashboardPage> {
   final EducatorLogic _logic = EducatorLogic();
 
+  late String _username = widget.username;
+
   List<EducatorVideoItem> _videos = [];
   bool _loadingVideos = true;
   String? _videosError;
@@ -42,6 +45,19 @@ class _EducatorDashboardPageState extends State<EducatorDashboardPage> {
     super.initState();
     _loadVideos();
     _loadForumPosts();
+  }
+
+  Future<void> _openProfile() async {
+    final updatedProfile = await Navigator.of(context).push<EducatorProfile>(
+      MaterialPageRoute(
+        builder: (_) => const EducatorProfilePage(),
+      ),
+    );
+
+    if (!mounted || updatedProfile == null) return;
+    setState(() {
+      _username = updatedProfile.username;
+    });
   }
 
   Future<void> _refreshAll() {
@@ -294,8 +310,13 @@ class _EducatorDashboardPageState extends State<EducatorDashboardPage> {
     return Scaffold(
       backgroundColor: cs.surfaceContainerLowest,
       appBar: AppBar(
-        title: Text("${widget.username}'s Dashboard"),
+        title: Text("$_username's Dashboard"),
         actions: [
+          IconButton(
+            tooltip: 'Profile',
+            onPressed: _openProfile,
+            icon: const Icon(Icons.person_outline_rounded),
+          ),
           IconButton(
             tooltip: 'Sign out',
             onPressed: widget.onSignOut,
