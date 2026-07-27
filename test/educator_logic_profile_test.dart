@@ -84,6 +84,29 @@ void main() {
       });
     });
 
+    group('hasEducatorAccount', () {
+      test('is false when signed out', () async {
+        dataSource.currentUser = null;
+        expect(await logic.hasEducatorAccount(), isFalse);
+      });
+
+      test('is false when no educators row exists for the current user',
+          () async {
+        expect(await logic.hasEducatorAccount(), isFalse);
+      });
+
+      test('is true when an educators row exists for the current user',
+          () async {
+        dataSource.rows.add({'id': 'user-1', 'username': 'alice'});
+        expect(await logic.hasEducatorAccount(), isTrue);
+      });
+
+      test('does not create a row as a side effect', () async {
+        await logic.hasEducatorAccount();
+        expect(dataSource.rows, isEmpty);
+      });
+    });
+
     group('fetchCurrentEducatorProfile', () {
       test('throws when signed out', () {
         dataSource.currentUser = null;
