@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../resources_and_services/educator_logic.dart';
 import 'educator_profile_avatar.dart';
 import 'expandable_text.dart';
+import 'forum_post_comments_sheet.dart';
 
 /// A public, read-only view of one educator's profile and content -
 /// reachable by anyone, including a fully signed-out visitor, via the hub's
@@ -30,7 +31,7 @@ class _EducatorChannelPageState extends State<EducatorChannelPage> {
   bool _loadingVideos = true;
   String? _videosError;
 
-  List<ForumPostItem> _posts = [];
+  List<ForumPostWithEngagement> _posts = [];
   bool _loadingPosts = true;
   String? _postsError;
 
@@ -99,7 +100,9 @@ class _EducatorChannelPageState extends State<EducatorChannelPage> {
     });
 
     try {
-      final posts = await _logic.fetchForumPostsForEducator(widget.educatorId);
+      final posts = await _logic.fetchForumPostsWithEngagementForEducator(
+        widget.educatorId,
+      );
       if (!mounted) return;
       setState(() {
         _posts = posts;
@@ -115,6 +118,43 @@ class _EducatorChannelPageState extends State<EducatorChannelPage> {
         );
       });
     }
+  }
+
+  Future<void> _toggleLike(ForumPostWithEngagement item) async {
+    if (_logic.currentUser == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Sign in to like posts.')),
+      );
+      return;
+    }
+
+    try {
+      await _logic.toggleForumPostLike(item.post.id);
+      await _loadForumPosts();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            EducatorLogic.userMessageForError(
+              error,
+              fallback: 'Could not update your like.',
+            ),
+          ),
+        ),
+      );
+    }
+  }
+
+  void _openComments(ForumPostWithEngagement item) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => ForumPostCommentsSheet(
+        logic: _logic,
+        forumPostId: item.post.id,
+      ),
+    ).then((_) => _loadForumPosts());
   }
 
   Widget _buildHeader(ColorScheme cs) {
@@ -246,7 +286,11 @@ class _EducatorChannelPageState extends State<EducatorChannelPage> {
       content = Column(
         children: [
           for (final post in _posts) ...[
-            _ChannelForumPostTile(post: post),
+            _ChannelForumPostTile(
+              item: post,
+              onToggleLike: () => _toggleLike(post),
+              onOpenComments: () => _openComments(post),
+            ),
             if (post != _posts.last) const SizedBox(height: 12),
           ],
         ],
@@ -352,43 +396,79 @@ class _ChannelVideoTile extends StatelessWidget {
 }
 
 class _ChannelForumPostTile extends StatelessWidget {
-  const _ChannelForumPostTile({required this.post});
+  const _ChannelForumPostTile({
+    required this.item,
+    required this.onToggleLike,
+    required this.onOpenComments,
+  });
 
-  final ForumPostItem post;
+  final ForumPostWithEngagement item;
+  final VoidCallback onToggleLike;
+  final VoidCallback onOpenComments;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
+    final post = item.post;
 
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(14),
-        child: Row(
+        child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              width: 52,
-              height: 52,
-              decoration: BoxDecoration(
-                color: cs.tertiary.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Icon(Icons.forum_rounded, color: cs.tertiary),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(post.title, style: theme.textTheme.titleMedium),
-                  const SizedBox(height: 6),
-                  ExpandableText(
-                    text: post.description,
-                    style: theme.textTheme.bodyMedium,
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 52,
+                  height: 52,
+                  decoration: BoxDecoration(
+                    color: cs.tertiary.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(16),
                   ),
-                ],
-              ),
+                  child: Icon(Icons.forum_rounded, color: cs.tertiary),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(post.title, style: theme.textTheme.titleMedium),
+                      const SizedBox(height: 6),
+                      ExpandableText(
+                        text: post.description,
+                        style: theme.textTheme.bodyMedium,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            Row(
+              children: [
+                IconButton(
+                  tooltip: item.isLikedByCurrentUser ? 'Unlike' : 'Like',
+                  onPressed: onToggleLike,
+                  icon: Icon(
+                    item.isLikedByCurrentUser
+                        ? Icons.favorite_rounded
+                        : Icons.favorite_border_rounded,
+                    color: item.isLikedByCurrentUser
+                        ? Colors.pink.shade500
+                        : cs.onSurfaceVariant,
+                  ),
+                ),
+                Text('${item.likeCount}'),
+                const SizedBox(width: 10),
+                IconButton(
+                  tooltip: 'Comments',
+                  onPressed: onOpenComments,
+                  icon: const Icon(Icons.mode_comment_outlined),
+                ),
+                Text('${item.commentCount}'),
+              ],
             ),
           ],
         ),

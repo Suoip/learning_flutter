@@ -37,7 +37,7 @@ class _EducatorDashboardPageState extends State<EducatorDashboardPage> {
   bool _loadingVideos = true;
   String? _videosError;
 
-  List<ForumPostItem> _posts = [];
+  List<ForumPostWithEngagement> _posts = [];
   bool _loadingPosts = true;
   String? _postsError;
 
@@ -105,7 +105,9 @@ class _EducatorDashboardPageState extends State<EducatorDashboardPage> {
     });
 
     try {
-      final posts = await _logic.fetchForumPostsForCurrentEducator();
+      final posts = await _logic.fetchForumPostsWithEngagementForEducator(
+        _logic.currentUser!.id,
+      );
       if (!mounted) return;
       setState(() {
         _posts = posts;
@@ -289,8 +291,8 @@ class _EducatorDashboardPageState extends State<EducatorDashboardPage> {
         children: [
           for (final post in _posts) ...[
             _EducatorForumPostTile(
-              post: post,
-              onTap: () => _editForumPost(post),
+              item: post,
+              onTap: () => _editForumPost(post.post),
             ),
             if (post != _posts.last) const SizedBox(height: 12),
           ],
@@ -454,15 +456,16 @@ class _EducatorVideoTile extends StatelessWidget {
 }
 
 class _EducatorForumPostTile extends StatelessWidget {
-  const _EducatorForumPostTile({required this.post, required this.onTap});
+  const _EducatorForumPostTile({required this.item, required this.onTap});
 
-  final ForumPostItem post;
+  final ForumPostWithEngagement item;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
+    final post = item.post;
 
     return Card(
       child: InkWell(
@@ -508,6 +511,34 @@ class _EducatorForumPostTile extends StatelessWidget {
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: cs.onSurfaceVariant,
                       ),
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.favorite_border_rounded,
+                          size: 16,
+                          color: cs.onSurfaceVariant,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          '${item.likeCount}',
+                          style: theme.textTheme.bodySmall
+                              ?.copyWith(color: cs.onSurfaceVariant),
+                        ),
+                        const SizedBox(width: 12),
+                        Icon(
+                          Icons.mode_comment_outlined,
+                          size: 16,
+                          color: cs.onSurfaceVariant,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          '${item.commentCount}',
+                          style: theme.textTheme.bodySmall
+                              ?.copyWith(color: cs.onSurfaceVariant),
+                        ),
+                      ],
                     ),
                   ],
                 ),
