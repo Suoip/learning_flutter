@@ -7,6 +7,7 @@ This project's Supabase backend depends on:
 3. Storage bucket `profile-pictures`
 4. RLS + storage policies
 5. `public.educators` (SmartAcademy's educator accounts - separate table/RLS from Notes' `profiles`, sharing the same `auth.users` pool)
+6. `public.educator_videos` (SmartAcademy educator-authored video metadata, RLS scoped to the owning educator)
 
 Run this SQL in your Supabase project SQL editor:
 
@@ -15,6 +16,7 @@ Run this SQL in your Supabase project SQL editor:
 `backend/sql/003_friendships_delete_policy.sql`
 `backend/sql/004_shared_notes_recipients_redesign.sql` (**destructive** - drops and recreates `shared_notes`, `shared_note_likes`, and `shared_note_comments`; existing published-notes/likes/comments test data is lost)
 `backend/sql/005_educators.sql` (adds `public.educators` and rewrites `handle_new_auth_user()` to branch on a new `app` signup-metadata tag; safe to run against existing data - existing Notes signups have no `app` tag and fall through to the unchanged Notes/profiles branch)
+`backend/sql/006_educator_videos.sql` (adds `public.educator_videos`; safe to run against existing data, purely additive)
 
 ## Required Supabase Auth settings
 
@@ -46,3 +48,4 @@ Run this SQL in your Supabase project SQL editor:
 - RLS delete policy so either member of a friendship can unfriend (remove) it
 - `shared_notes` redesigned to one row per published note (not per recipient), with a `shared_note_recipients` join table, so likes/comments aggregate correctly and the author can see engagement on their own posts
 - Educator accounts (`public.educators`) for SmartAcademy, gated through the same `auth.users` trigger via an `app` metadata tag (`'notes'` vs `'smart_academy'`), so one Supabase Auth pool serves both features without cross-creating profile/educator rows
+- Educator-authored video content (`public.educator_videos`), RLS scoped to the owning educator via a foreign key to `public.educators`

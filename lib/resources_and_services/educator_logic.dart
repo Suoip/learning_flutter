@@ -1,20 +1,76 @@
+import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'educator_videos_data_source.dart';
 import 'supabase_auth_response_helpers.dart' as auth_response;
 import 'supabase_client.dart';
 
-/// Auth for SmartAcademy's educator accounts - register, login, forgot
-/// password. Deliberately independent of NotesLogic/the `profiles` table:
-/// educators live in their own `public.educators` table, tagged apart from
-/// Notes signups at the database trigger level via an `app` metadata field
-/// set below. Shares only the small, generic Supabase-response-interpretation
+/// A single educator-authored video entry - title, description, and a
+/// free-text duration placeholder like "12:34". Metadata only; no real
+/// video file upload exists or is planned yet.
+class EducatorVideoItem {
+  const EducatorVideoItem({
+    required this.id,
+    required this.title,
+    required this.description,
+    required this.durationLabel,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+
+  final String id;
+  final String title;
+  final String description;
+  final String? durationLabel;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+
+  factory EducatorVideoItem.fromMap(Map<String, dynamic> map) {
+    final createdValue = map['created_at'];
+    final createdAt = createdValue == null
+        ? DateTime.now().toUtc()
+        : DateTime.parse(createdValue.toString()).toUtc();
+
+    final updatedValue = map['updated_at'] ?? map['created_at'];
+    final updatedAt = updatedValue == null
+        ? createdAt
+        : DateTime.parse(updatedValue.toString()).toUtc();
+
+    final rawDuration = (map['duration_label'] as String?)?.trim();
+
+    return EducatorVideoItem(
+      id: map['id'].toString(),
+      title: (map['title'] ?? '').toString(),
+      description: (map['description'] ?? '').toString(),
+      durationLabel:
+          (rawDuration == null || rawDuration.isEmpty) ? null : rawDuration,
+      createdAt: createdAt,
+      updatedAt: updatedAt,
+    );
+  }
+}
+
+/// Auth + video-content CRUD for SmartAcademy's educator accounts.
+/// Deliberately independent of NotesLogic/the `profiles` table: educators
+/// live in their own `public.educators` table, tagged apart from Notes
+/// signups at the database trigger level via an `app` metadata field set
+/// below. Shares only the small, generic Supabase-response-interpretation
 /// helpers with Notes (see supabase_auth_response_helpers.dart), since those
 /// don't reference either feature's own tables.
 class EducatorLogic {
-  EducatorLogic({SupabaseClient? client}) : _explicitClient = client;
+  EducatorLogic({
+    SupabaseClient? client,
+    EducatorVideosDataSource? educatorVideosDataSource,
+  })  : _explicitClient = client,
+        _explicitEducatorVideosDataSource = educatorVideosDataSource;
 
   final SupabaseClient? _explicitClient;
   late final SupabaseClient _client = _explicitClient ?? AppSupabase.client;
+
+  final EducatorVideosDataSource? _explicitEducatorVideosDataSource;
+  late final EducatorVideosDataSource _educatorVideosDataSource =
+      _explicitEducatorVideosDataSource ??
+          SupabaseEducatorVideosDataSource(_client);
 
   static const String activationRequiredMessage =
       'Please confirm your email to activate your educator account.';
@@ -106,6 +162,10 @@ class EducatorLogic {
       if (error.code == '23505') return 'That value is already in use.';
       if (error.code == '42501') {
         return 'You do not have permission to do that.';
+      }
+      if (error.code == '23503') {
+        return 'Your account is not registered as an educator yet. Try '
+            'signing out and registering with a different email.';
       }
       return fallback;
     }
@@ -274,5 +334,75 @@ class EducatorLogic {
     } on AuthException catch (error) {
       throw Exception(userMessageForError(error));
     }
+  }
+
+  static String formatUpdatedTime(DateTime dateTime) {
+    return DateFormat('MMM d, h:mm a').format(dateTime.toLocal());
+  }
+
+  static List<EducatorVideoItem> _sortVideosNewestFirst(
+    List<EducatorVideoItem> videos,
+  ) {
+    final sorted = [...videos];
+    sorted.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    return sorted;
+  }
+
+  Future<List<EducatorVideoItem>> fetchVideosForCurrentEducator() async {
+    final educatorId = _educatorVideosDataSource.currentUserId;
+    if (educatorId == null) return [];
+
+    final rows = await _educatorVideosDataSource.selectVideos(
+      educatorId: educatorId,
+    );
+    final videos = rows.map((row) => EducatorVideoItem.fromMap(row)).toList();
+
+    return _sortVideosNewestFirst(videos);
+  }
+
+  Future<EducatorVideoItem> createVideo({
+    required String title,
+    required String description,
+    String? durationLabel,
+  }) async {
+    final educatorId = _educatorVideosDataSource.currentUserId;
+    if (educatorId == null) {
+      throw Exception('You are not logged in.');
+    }
+
+    final normalizedDuration = durationLabel?.trim();
+    final inserted = await _educatorVideosDataSource.insertVideo({
+      'educator_id': educatorId,
+      'title': title.trim(),
+      'description': description.trim(),
+      'duration_label':
+          (normalizedDuration == null || normalizedDuration.isEmpty)
+              ? null
+              : normalizedDuration,
+    });
+
+    return EducatorVideoItem.fromMap(inserted);
+  }
+
+  Future<void> updateVideo({
+    required String videoId,
+    required String title,
+    required String description,
+    String? durationLabel,
+  }) async {
+    final normalizedDuration = durationLabel?.trim();
+    await _educatorVideosDataSource.updateVideoById(videoId, {
+      'title': title.trim(),
+      'description': description.trim(),
+      'duration_label':
+          (normalizedDuration == null || normalizedDuration.isEmpty)
+              ? null
+              : normalizedDuration,
+      'updated_at': DateTime.now().toUtc().toIso8601String(),
+    });
+  }
+
+  Future<void> deleteVideo(String videoId) async {
+    await _educatorVideosDataSource.deleteVideoById(videoId);
   }
 }
