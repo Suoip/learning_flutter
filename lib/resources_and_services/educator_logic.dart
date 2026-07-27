@@ -3,9 +3,11 @@ import 'dart:typed_data';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'educator_forum_engagement_data_source.dart';
 import 'educator_forum_posts_data_source.dart';
 import 'educator_profile_data_source.dart';
 import 'educator_videos_data_source.dart';
+import 'profiles_data_source.dart';
 import 'supabase_auth_response_helpers.dart' as auth_response;
 import 'supabase_client.dart';
 
@@ -92,6 +94,47 @@ class ForumPostItem {
   }
 }
 
+/// A [ForumPostItem] plus its like/comment engagement - no author fields
+/// needed, since a forum post's own author is always the educator whose
+/// channel/dashboard it's being viewed from.
+class ForumPostWithEngagement {
+  const ForumPostWithEngagement({
+    required this.post,
+    required this.likeCount,
+    required this.commentCount,
+    required this.isLikedByCurrentUser,
+  });
+
+  final ForumPostItem post;
+  final int likeCount;
+  final int commentCount;
+  final bool isLikedByCurrentUser;
+}
+
+/// A single comment on a forum post. Unlike a forum post's own author
+/// (always an educator), a comment's author could be either account type -
+/// any signed-in account can comment - so both username/avatar are
+/// resolved at read time rather than assumed to come from `educators`.
+class ForumPostCommentItem {
+  const ForumPostCommentItem({
+    required this.id,
+    required this.forumPostId,
+    required this.authorId,
+    required this.authorUsername,
+    required this.authorAvatarUrl,
+    required this.content,
+    required this.createdAt,
+  });
+
+  final String id;
+  final String forumPostId;
+  final String authorId;
+  final String authorUsername;
+  final String? authorAvatarUrl;
+  final String content;
+  final DateTime createdAt;
+}
+
 /// An educator's own profile: username + optional avatar. Mirrors
 /// `UserProfile` in notes_logic.dart.
 class EducatorProfile {
@@ -135,10 +178,15 @@ class EducatorLogic {
     EducatorVideosDataSource? educatorVideosDataSource,
     EducatorForumPostsDataSource? educatorForumPostsDataSource,
     EducatorProfileDataSource? educatorProfileDataSource,
+    EducatorForumEngagementDataSource? educatorForumEngagementDataSource,
+    ProfilesDataSource? profilesDataSource,
   })  : _explicitClient = client,
         _explicitEducatorVideosDataSource = educatorVideosDataSource,
         _explicitEducatorForumPostsDataSource = educatorForumPostsDataSource,
-        _explicitEducatorProfileDataSource = educatorProfileDataSource;
+        _explicitEducatorProfileDataSource = educatorProfileDataSource,
+        _explicitEducatorForumEngagementDataSource =
+            educatorForumEngagementDataSource,
+        _explicitProfilesDataSource = profilesDataSource;
 
   final SupabaseClient? _explicitClient;
   late final SupabaseClient _client = _explicitClient ?? AppSupabase.client;
@@ -157,6 +205,24 @@ class EducatorLogic {
   late final EducatorProfileDataSource _educatorProfileDataSource =
       _explicitEducatorProfileDataSource ??
           SupabaseEducatorProfileDataSource(_client);
+
+  final EducatorForumEngagementDataSource?
+      _explicitEducatorForumEngagementDataSource;
+  late final EducatorForumEngagementDataSource
+      _educatorForumEngagementDataSource =
+      _explicitEducatorForumEngagementDataSource ??
+          SupabaseEducatorForumEngagementDataSource(_client);
+
+  /// Used only to resolve a forum-post commenter's identity when they're
+  /// not found in `educators` - a comment's author could be either a Notes
+  /// user or an educator, since either account type is eligible to
+  /// comment/like. A data-access-class dependency, not a `NotesLogic`
+  /// dependency - matches this file's existing precedent of sharing generic
+  /// helpers (see supabase_auth_response_helpers.dart) without coupling the
+  /// two features' business logic.
+  final ProfilesDataSource? _explicitProfilesDataSource;
+  late final ProfilesDataSource _profilesDataSource =
+      _explicitProfilesDataSource ?? SupabaseProfilesDataSource(_client);
 
   static const String activationRequiredMessage =
       'Please confirm your email to activate your educator account.';
@@ -706,5 +772,165 @@ class EducatorLogic {
 
   Future<void> deleteForumPost(String postId) async {
     await _educatorForumPostsDataSource.deleteForumPostById(postId);
+  }
+
+  /// Fetches an educator's forum posts along with their like/comment
+  /// engagement. `currentUserId` (nullable) is only used to compute
+  /// [ForumPostWithEngagement.isLikedByCurrentUser] - it must never gate the
+  /// fetch itself, since the public channel page calls this while fully
+  /// signed out.
+  Future<List<ForumPostWithEngagement>>
+      fetchForumPostsWithEngagementForEducator(
+    String educatorId,
+  ) async {
+    final posts = await fetchForumPostsForEducator(educatorId);
+    if (posts.isEmpty) return [];
+
+    final ids = posts.map((post) => post.id).toList();
+    final currentUserId = _educatorForumEngagementDataSource.currentUserId;
+
+    final likesRows =
+        await _educatorForumEngagementDataSource.selectLikesForForumPostIds(
+      ids,
+    );
+    final commentCountRows = await _educatorForumEngagementDataSource
+        .selectCommentCountRowsForForumPostIds(ids);
+
+    final likeCounts = <String, int>{};
+    final likedByCurrentUser = <String>{};
+    for (final row in likesRows) {
+      final postId = row['forum_post_id'].toString();
+      likeCounts[postId] = (likeCounts[postId] ?? 0) + 1;
+      if (currentUserId != null && row['user_id'].toString() == currentUserId) {
+        likedByCurrentUser.add(postId);
+      }
+    }
+
+    final commentCounts = <String, int>{};
+    for (final row in commentCountRows) {
+      final postId = row['forum_post_id'].toString();
+      commentCounts[postId] = (commentCounts[postId] ?? 0) + 1;
+    }
+
+    return posts.map((post) {
+      return ForumPostWithEngagement(
+        post: post,
+        likeCount: likeCounts[post.id] ?? 0,
+        commentCount: commentCounts[post.id] ?? 0,
+        isLikedByCurrentUser: likedByCurrentUser.contains(post.id),
+      );
+    }).toList();
+  }
+
+  /// Throws when signed out (unlike `NotesLogic.toggleFeedLike`'s silent
+  /// no-op) - a signed-out visitor reaching this is a real, expected case
+  /// on the public channel page, not dead code, so the UI needs a real
+  /// signal to show a "sign in to like" message instead.
+  Future<void> toggleForumPostLike(String forumPostId) async {
+    final userId = _educatorForumEngagementDataSource.currentUserId;
+    if (userId == null) {
+      throw Exception('You are not logged in.');
+    }
+
+    final existing = await _educatorForumEngagementDataSource.selectLike(
+      forumPostId: forumPostId,
+      userId: userId,
+    );
+
+    if (existing == null) {
+      await _educatorForumEngagementDataSource.insertLike(
+        forumPostId: forumPostId,
+        userId: userId,
+      );
+    } else {
+      await _educatorForumEngagementDataSource.deleteLike(
+        forumPostId: forumPostId,
+        userId: userId,
+      );
+    }
+  }
+
+  /// Resolves a batch of user ids to display identity, checking `educators`
+  /// first (already fully public) then falling back to `profiles` for ids
+  /// not found there. The two id sets are provably disjoint - one shared
+  /// `auth.users` pool, one trigger branch per signup - so this ordering
+  /// only affects efficiency, never correctness.
+  Future<Map<String, ({String username, String? avatarUrl})>>
+      _resolveCommentAuthors(List<String> ids) async {
+    if (ids.isEmpty) return {};
+
+    final resolved = <String, ({String username, String? avatarUrl})>{};
+
+    final educatorRows =
+        await _educatorProfileDataSource.selectEducatorsByIds(ids);
+    for (final row in educatorRows) {
+      resolved[(row['id'] ?? '').toString()] = (
+        username: (row['username'] ?? '').toString().trim().toLowerCase(),
+        avatarUrl: (row['avatar_url'] as String?)?.trim(),
+      );
+    }
+
+    final remainingIds = ids.where((id) => !resolved.containsKey(id)).toList();
+    if (remainingIds.isNotEmpty) {
+      final profileRows =
+          await _profilesDataSource.selectProfilesByIds(remainingIds);
+      for (final row in profileRows) {
+        resolved[(row['id'] ?? '').toString()] = (
+          username: (row['username'] ?? '').toString().trim().toLowerCase(),
+          avatarUrl: (row['avatar_url'] as String?)?.trim(),
+        );
+      }
+    }
+
+    return resolved;
+  }
+
+  Future<List<ForumPostCommentItem>> fetchForumPostComments(
+    String forumPostId,
+  ) async {
+    final rows = await _educatorForumEngagementDataSource
+        .selectCommentsForForumPost(forumPostId);
+    final authorIds =
+        rows.map((row) => row['user_id'].toString()).toSet().toList();
+    final authors = await _resolveCommentAuthors(authorIds);
+
+    return rows.map((row) {
+      final authorId = row['user_id'].toString();
+      final author = authors[authorId];
+      final createdValue = row['created_at'];
+      return ForumPostCommentItem(
+        id: row['id'].toString(),
+        forumPostId: row['forum_post_id'].toString(),
+        authorId: authorId,
+        authorUsername: author?.username ?? 'unknown',
+        authorAvatarUrl: author?.avatarUrl,
+        content: (row['content'] ?? '').toString(),
+        createdAt: createdValue == null
+            ? DateTime.now().toUtc()
+            : DateTime.parse(createdValue.toString()).toUtc(),
+      );
+    }).toList();
+  }
+
+  Future<void> addForumPostComment({
+    required String forumPostId,
+    required String content,
+  }) async {
+    final userId = _educatorForumEngagementDataSource.currentUserId;
+    if (userId == null) {
+      throw Exception('You are not logged in.');
+    }
+    final trimmed = content.trim();
+    if (trimmed.isEmpty) {
+      throw Exception('Comment cannot be empty.');
+    }
+    if (trimmed.length > 500) {
+      throw Exception('Comment is too long (max 500 characters).');
+    }
+    await _educatorForumEngagementDataSource.insertComment({
+      'forum_post_id': forumPostId,
+      'user_id': userId,
+      'content': trimmed,
+    });
   }
 }
