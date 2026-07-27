@@ -1,13 +1,25 @@
 import 'package:flutter/material.dart';
 
+import '../../resources_and_services/educator_logic.dart';
+import 'educator_dashboard_placeholder_page.dart';
+import 'smart_academy_activation_required_page.dart';
+import 'smart_academy_auth_page.dart';
 import 'smart_academy_detail_page.dart';
 import 'smart_academy_entry.dart';
 
 /// SmartAcademy's main hub: a YouTube-style grid of placeholder education
 /// videos, plus a separate forum-style section of text-only posts. Static
-/// sample data only for now - no backend yet.
-class SmartAcademyPage extends StatelessWidget {
+/// sample data only for now - no backend yet. Public/browsable without an
+/// account; the AppBar action is the only entry point into educator auth.
+class SmartAcademyPage extends StatefulWidget {
   const SmartAcademyPage({super.key});
+
+  @override
+  State<SmartAcademyPage> createState() => _SmartAcademyPageState();
+}
+
+class _SmartAcademyPageState extends State<SmartAcademyPage> {
+  final EducatorLogic _logic = EducatorLogic();
 
   static int _videoColumnsForWidth(double width) {
     if (width >= 1600) return 5;
@@ -25,12 +37,76 @@ class SmartAcademyPage extends StatelessWidget {
     );
   }
 
+  Future<void> _openEducatorArea() async {
+    final user = _logic.currentUser;
+
+    if (user == null) {
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => SmartAcademyAuthPage(
+            onAuthenticated: () async {
+              if (!mounted) return;
+              Navigator.of(context).pop();
+            },
+          ),
+        ),
+      );
+      if (!mounted) return;
+      setState(() {});
+      return;
+    }
+
+    if (!EducatorLogic.isUserEmailConfirmed(user)) {
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => SmartAcademyActivationRequiredPage(
+            onSignOut: () async {
+              await _logic.signOut();
+              if (!mounted) return;
+              Navigator.of(context).pop();
+            },
+          ),
+        ),
+      );
+      if (!mounted) return;
+      setState(() {});
+      return;
+    }
+
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => EducatorDashboardPlaceholderPage(
+          username: EducatorLogic.defaultUsernameForUser(user),
+          onSignOut: () async {
+            await _logic.signOut();
+            if (!mounted) return;
+            Navigator.of(context).pop();
+          },
+        ),
+      ),
+    );
+    if (!mounted) return;
+    setState(() {});
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final user = _logic.currentUser;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('SmartAcademy')),
+      appBar: AppBar(
+        title: const Text('SmartAcademy'),
+        actions: [
+          IconButton(
+            tooltip: user == null ? 'Educator sign in' : 'Educator dashboard',
+            onPressed: _openEducatorArea,
+            icon: Icon(
+              user == null ? Icons.login_rounded : Icons.school_outlined,
+            ),
+          ),
+        ],
+      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 40),
         child: Column(

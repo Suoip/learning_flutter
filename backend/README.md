@@ -1,11 +1,12 @@
 # Backend setup (Supabase)
 
-The Notes app now depends on:
+This project's Supabase backend depends on:
 
 1. `public.notes`
 2. `public.profiles` (with `avatar_url`)
 3. Storage bucket `profile-pictures`
 4. RLS + storage policies
+5. `public.educators` (SmartAcademy's educator accounts - separate table/RLS from Notes' `profiles`, sharing the same `auth.users` pool)
 
 Run this SQL in your Supabase project SQL editor:
 
@@ -13,6 +14,7 @@ Run this SQL in your Supabase project SQL editor:
 `backend/sql/002_social_friends_and_shared_notes.sql`
 `backend/sql/003_friendships_delete_policy.sql`
 `backend/sql/004_shared_notes_recipients_redesign.sql` (**destructive** - drops and recreates `shared_notes`, `shared_note_likes`, and `shared_note_comments`; existing published-notes/likes/comments test data is lost)
+`backend/sql/005_educators.sql` (adds `public.educators` and rewrites `handle_new_auth_user()` to branch on a new `app` signup-metadata tag; safe to run against existing data - existing Notes signups have no `app` tag and fall through to the unchanged Notes/profiles branch)
 
 ## Required Supabase Auth settings
 
@@ -43,3 +45,4 @@ Run this SQL in your Supabase project SQL editor:
 - RLS for social features so feed is read-only for recipients and editable by authors only
 - RLS delete policy so either member of a friendship can unfriend (remove) it
 - `shared_notes` redesigned to one row per published note (not per recipient), with a `shared_note_recipients` join table, so likes/comments aggregate correctly and the author can see engagement on their own posts
+- Educator accounts (`public.educators`) for SmartAcademy, gated through the same `auth.users` trigger via an `app` metadata tag (`'notes'` vs `'smart_academy'`), so one Supabase Auth pool serves both features without cross-creating profile/educator rows
