@@ -3,7 +3,8 @@ import 'package:flutter/material.dart';
 import '../../resources_and_services/educator_logic.dart';
 import 'educator_profile_avatar.dart';
 import 'expandable_text.dart';
-import 'forum_post_comments_sheet.dart';
+import 'smart_academy_detail_page.dart';
+import 'smart_academy_entry.dart';
 
 /// A public, read-only view of one educator's profile and content -
 /// reachable by anyone, including a fully signed-out visitor, via the hub's
@@ -27,7 +28,7 @@ class _EducatorChannelPageState extends State<EducatorChannelPage> {
   bool _loadingProfile = true;
   String? _profileError;
 
-  List<EducatorVideoItem> _videos = [];
+  List<EducatorVideoWithEngagement> _videos = [];
   bool _loadingVideos = true;
   String? _videosError;
 
@@ -75,7 +76,9 @@ class _EducatorChannelPageState extends State<EducatorChannelPage> {
     });
 
     try {
-      final videos = await _logic.fetchVideosForEducator(widget.educatorId);
+      final videos = await _logic.fetchVideosWithEngagementForEducator(
+        widget.educatorId,
+      );
       if (!mounted) return;
       setState(() {
         _videos = videos;
@@ -120,41 +123,41 @@ class _EducatorChannelPageState extends State<EducatorChannelPage> {
     }
   }
 
-  Future<void> _toggleLike(ForumPostWithEngagement item) async {
-    if (_logic.currentUser == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Sign in to like posts.')),
-      );
-      return;
-    }
-
-    try {
-      await _logic.toggleForumPostLike(item.post.id);
-      await _loadForumPosts();
-    } catch (error) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            EducatorLogic.userMessageForError(
-              error,
-              fallback: 'Could not update your like.',
-            ),
+  void _openVideo(EducatorVideoWithEngagement item) {
+    final profile = _profile;
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => SmartAcademyDetailPage(
+          entry: SmartAcademyEntry(
+            id: item.video.id,
+            kind: SmartAcademyEntryKind.video,
+            title: item.video.title,
+            authorName: profile?.username ?? '',
+            educatorId: widget.educatorId,
+            description: item.video.description,
+            durationLabel: item.video.durationLabel,
           ),
         ),
-      );
-    }
+      ),
+    );
   }
 
-  void _openComments(ForumPostWithEngagement item) {
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      builder: (_) => ForumPostCommentsSheet(
-        logic: _logic,
-        forumPostId: item.post.id,
+  void _openForumPost(ForumPostWithEngagement item) {
+    final profile = _profile;
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => SmartAcademyDetailPage(
+          entry: SmartAcademyEntry(
+            id: item.post.id,
+            kind: SmartAcademyEntryKind.forum,
+            title: item.post.title,
+            authorName: profile?.username ?? '',
+            educatorId: widget.educatorId,
+            description: item.post.description,
+          ),
+        ),
       ),
-    ).then((_) => _loadForumPosts());
+    );
   }
 
   Widget _buildHeader(ColorScheme cs) {
@@ -237,7 +240,7 @@ class _EducatorChannelPageState extends State<EducatorChannelPage> {
       content = Column(
         children: [
           for (final video in _videos) ...[
-            _ChannelVideoTile(video: video),
+            _ChannelVideoTile(item: video, onTap: () => _openVideo(video)),
             if (video != _videos.last) const SizedBox(height: 12),
           ],
         ],
@@ -288,8 +291,7 @@ class _EducatorChannelPageState extends State<EducatorChannelPage> {
           for (final post in _posts) ...[
             _ChannelForumPostTile(
               item: post,
-              onToggleLike: () => _toggleLike(post),
-              onOpenComments: () => _openComments(post),
+              onTap: () => _openForumPost(post),
             ),
             if (post != _posts.last) const SizedBox(height: 12),
           ],
@@ -337,58 +339,100 @@ class _EducatorChannelPageState extends State<EducatorChannelPage> {
   }
 }
 
-class _ChannelVideoTile extends StatelessWidget {
-  const _ChannelVideoTile({required this.video});
+Widget _buildPreviewEngagementRow(
+  ColorScheme cs, {
+  required bool isLiked,
+  required int likeCount,
+  required int commentCount,
+}) {
+  return Row(
+    children: [
+      Icon(
+        isLiked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+        size: 16,
+        color: isLiked ? Colors.pink.shade500 : cs.onSurfaceVariant,
+      ),
+      const SizedBox(width: 4),
+      Text('$likeCount', style: TextStyle(color: cs.onSurfaceVariant)),
+      const SizedBox(width: 12),
+      Icon(Icons.mode_comment_outlined, size: 16, color: cs.onSurfaceVariant),
+      const SizedBox(width: 4),
+      Text('$commentCount', style: TextStyle(color: cs.onSurfaceVariant)),
+    ],
+  );
+}
 
-  final EducatorVideoItem video;
+class _ChannelVideoTile extends StatelessWidget {
+  const _ChannelVideoTile({required this.item, required this.onTap});
+
+  final EducatorVideoWithEngagement item;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
+    final video = item.video;
 
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 52,
-              height: 52,
-              decoration: BoxDecoration(
-                color: cs.primary.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Icon(Icons.play_circle_fill_rounded, color: cs.primary),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(video.title,
-                            style: theme.textTheme.titleMedium),
-                      ),
-                      if (video.durationLabel != null) ...[
-                        const SizedBox(width: 8),
-                        Text(video.durationLabel!,
-                            style: theme.textTheme.bodySmall),
-                      ],
-                    ],
+                  Container(
+                    width: 52,
+                    height: 52,
+                    decoration: BoxDecoration(
+                      color: cs.primary.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child:
+                        Icon(Icons.play_circle_fill_rounded, color: cs.primary),
                   ),
-                  const SizedBox(height: 6),
-                  ExpandableText(
-                    text: video.description,
-                    style: theme.textTheme.bodyMedium,
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(video.title,
+                                  style: theme.textTheme.titleMedium),
+                            ),
+                            if (video.durationLabel != null) ...[
+                              const SizedBox(width: 8),
+                              Text(video.durationLabel!,
+                                  style: theme.textTheme.bodySmall),
+                            ],
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        ExpandableText(
+                          text: video.description,
+                          style: theme.textTheme.bodyMedium,
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
-            ),
-          ],
+              const SizedBox(height: 8),
+              _buildPreviewEngagementRow(
+                cs,
+                isLiked: item.isLikedByCurrentUser,
+                likeCount: item.likeCount,
+                commentCount: item.commentCount,
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -396,15 +440,10 @@ class _ChannelVideoTile extends StatelessWidget {
 }
 
 class _ChannelForumPostTile extends StatelessWidget {
-  const _ChannelForumPostTile({
-    required this.item,
-    required this.onToggleLike,
-    required this.onOpenComments,
-  });
+  const _ChannelForumPostTile({required this.item, required this.onTap});
 
   final ForumPostWithEngagement item;
-  final VoidCallback onToggleLike;
-  final VoidCallback onOpenComments;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -413,64 +452,51 @@ class _ChannelForumPostTile extends StatelessWidget {
     final post = item.post;
 
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: 52,
-                  height: 52,
-                  decoration: BoxDecoration(
-                    color: cs.tertiary.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 52,
+                    height: 52,
+                    decoration: BoxDecoration(
+                      color: cs.tertiary.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Icon(Icons.forum_rounded, color: cs.tertiary),
                   ),
-                  child: Icon(Icons.forum_rounded, color: cs.tertiary),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(post.title, style: theme.textTheme.titleMedium),
-                      const SizedBox(height: 6),
-                      ExpandableText(
-                        text: post.description,
-                        style: theme.textTheme.bodyMedium,
-                      ),
-                    ],
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(post.title, style: theme.textTheme.titleMedium),
+                        const SizedBox(height: 6),
+                        ExpandableText(
+                          text: post.description,
+                          style: theme.textTheme.bodyMedium,
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
-            ),
-            Row(
-              children: [
-                IconButton(
-                  tooltip: item.isLikedByCurrentUser ? 'Unlike' : 'Like',
-                  onPressed: onToggleLike,
-                  icon: Icon(
-                    item.isLikedByCurrentUser
-                        ? Icons.favorite_rounded
-                        : Icons.favorite_border_rounded,
-                    color: item.isLikedByCurrentUser
-                        ? Colors.pink.shade500
-                        : cs.onSurfaceVariant,
-                  ),
-                ),
-                Text('${item.likeCount}'),
-                const SizedBox(width: 10),
-                IconButton(
-                  tooltip: 'Comments',
-                  onPressed: onOpenComments,
-                  icon: const Icon(Icons.mode_comment_outlined),
-                ),
-                Text('${item.commentCount}'),
-              ],
-            ),
-          ],
+                ],
+              ),
+              const SizedBox(height: 8),
+              _buildPreviewEngagementRow(
+                cs,
+                isLiked: item.isLikedByCurrentUser,
+                likeCount: item.likeCount,
+                commentCount: item.commentCount,
+              ),
+            ],
+          ),
         ),
       ),
     );
