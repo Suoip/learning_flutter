@@ -24,6 +24,27 @@ class SmartAcademyEntry {
   final String? durationLabel;
 }
 
+/// Which hub section(s) to show. Since Videos and Forum are already kept as
+/// two separate lists/sections (a deliberate PR #18 decision, not merged
+/// into one feed), this only decides which section(s) render - it doesn't
+/// re-tag entries by kind.
+enum SmartAcademyHubFilter { all, videos, forum }
+
+/// Matches if [searchQuery] is empty, or if it's contained (case-insensitive)
+/// in an entry's title or author name.
+List<SmartAcademyEntry> filterSmartAcademyEntries({
+  required List<SmartAcademyEntry> entries,
+  required String searchQuery,
+}) {
+  final query = searchQuery.trim().toLowerCase();
+  if (query.isEmpty) return entries;
+
+  return entries.where((entry) {
+    return entry.title.toLowerCase().contains(query) ||
+        entry.authorName.toLowerCase().contains(query);
+  }).toList();
+}
+
 const List<SmartAcademyEntry> sampleVideoEntries = [
   SmartAcademyEntry(
     id: 'v1',
