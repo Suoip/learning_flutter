@@ -46,6 +46,13 @@ class FakeEducatorVideosDataSource implements EducatorVideosDataSource {
   }
 
   @override
+  Future<Map<String, dynamic>?> selectVideoById(String id) async {
+    final index = rows.indexWhere((row) => row['id'] == id);
+    if (index == -1) return null;
+    return Map<String, dynamic>.from(rows[index]);
+  }
+
+  @override
   Future<Map<String, dynamic>> insertVideo(
     Map<String, dynamic> values,
   ) async {

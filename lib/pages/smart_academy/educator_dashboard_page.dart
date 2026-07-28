@@ -33,7 +33,7 @@ class _EducatorDashboardPageState extends State<EducatorDashboardPage> {
 
   late String _username = widget.username;
 
-  List<EducatorVideoItem> _videos = [];
+  List<EducatorVideoWithEngagement> _videos = [];
   bool _loadingVideos = true;
   String? _videosError;
 
@@ -80,7 +80,9 @@ class _EducatorDashboardPageState extends State<EducatorDashboardPage> {
     });
 
     try {
-      final videos = await _logic.fetchVideosForCurrentEducator();
+      final videos = await _logic.fetchVideosWithEngagementForEducator(
+        _logic.currentUser!.id,
+      );
       if (!mounted) return;
       setState(() {
         _videos = videos;
@@ -222,8 +224,8 @@ class _EducatorDashboardPageState extends State<EducatorDashboardPage> {
         children: [
           for (final video in _videos) ...[
             _EducatorVideoTile(
-              video: video,
-              onTap: () => _editVideo(video),
+              item: video,
+              onTap: () => _editVideo(video.video),
             ),
             if (video != _videos.last) const SizedBox(height: 12),
           ],
@@ -363,15 +365,16 @@ class _EducatorDashboardPageState extends State<EducatorDashboardPage> {
 }
 
 class _EducatorVideoTile extends StatelessWidget {
-  const _EducatorVideoTile({required this.video, required this.onTap});
+  const _EducatorVideoTile({required this.item, required this.onTap});
 
-  final EducatorVideoItem video;
+  final EducatorVideoWithEngagement item;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
+    final video = item.video;
 
     return Card(
       clipBehavior: Clip.antiAlias,
@@ -441,6 +444,34 @@ class _EducatorVideoTile extends StatelessWidget {
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: cs.onSurfaceVariant,
                           ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.favorite_border_rounded,
+                          size: 16,
+                          color: cs.onSurfaceVariant,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          '${item.likeCount}',
+                          style: theme.textTheme.bodySmall
+                              ?.copyWith(color: cs.onSurfaceVariant),
+                        ),
+                        const SizedBox(width: 12),
+                        Icon(
+                          Icons.mode_comment_outlined,
+                          size: 16,
+                          color: cs.onSurfaceVariant,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          '${item.commentCount}',
+                          style: theme.textTheme.bodySmall
+                              ?.copyWith(color: cs.onSurfaceVariant),
                         ),
                       ],
                     ),

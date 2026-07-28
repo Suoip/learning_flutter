@@ -26,6 +26,11 @@ abstract class EducatorVideosDataSource {
     required int limit,
   });
 
+  /// A single video by id, regardless of who wrote it - used to refresh live
+  /// engagement for a video reached via the public hub, which only has the
+  /// video's own id.
+  Future<Map<String, dynamic>?> selectVideoById(String id);
+
   Future<Map<String, dynamic>> insertVideo(Map<String, dynamic> values);
 
   Future<void> updateVideoById(String id, Map<String, dynamic> values);
@@ -70,6 +75,15 @@ class SupabaseEducatorVideosDataSource implements EducatorVideosDataSource {
         .order('updated_at', ascending: false)
         .limit(limit);
     return (rows as List<dynamic>).cast<Map<String, dynamic>>();
+  }
+
+  @override
+  Future<Map<String, dynamic>?> selectVideoById(String id) {
+    return _client
+        .from('educator_videos')
+        .select(_columns)
+        .eq('id', id)
+        .maybeSingle();
   }
 
   @override

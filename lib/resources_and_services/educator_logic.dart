@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'educator_forum_engagement_data_source.dart';
 import 'educator_forum_posts_data_source.dart';
 import 'educator_profile_data_source.dart';
+import 'educator_video_engagement_data_source.dart';
 import 'educator_videos_data_source.dart';
 import 'profiles_data_source.dart';
 import 'supabase_auth_response_helpers.dart' as auth_response;
@@ -71,6 +72,47 @@ class EducatorVideoItemWithAuthor {
   final String educatorId;
   final String authorUsername;
   final String? authorAvatarUrl;
+}
+
+/// An [EducatorVideoItem] plus its like/comment engagement - no author
+/// fields needed, since a video's own author is always the educator whose
+/// channel/dashboard it's being viewed from.
+class EducatorVideoWithEngagement {
+  const EducatorVideoWithEngagement({
+    required this.video,
+    required this.likeCount,
+    required this.commentCount,
+    required this.isLikedByCurrentUser,
+  });
+
+  final EducatorVideoItem video;
+  final int likeCount;
+  final int commentCount;
+  final bool isLikedByCurrentUser;
+}
+
+/// A single comment on a video. Unlike a video's own author (always an
+/// educator), a comment's author could be either account type - any
+/// signed-in account can comment - so both username/avatar are resolved at
+/// read time rather than assumed to come from `educators`.
+class VideoCommentItem {
+  const VideoCommentItem({
+    required this.id,
+    required this.videoId,
+    required this.authorId,
+    required this.authorUsername,
+    required this.authorAvatarUrl,
+    required this.content,
+    required this.createdAt,
+  });
+
+  final String id;
+  final String videoId;
+  final String authorId;
+  final String authorUsername;
+  final String? authorAvatarUrl;
+  final String content;
+  final DateTime createdAt;
 }
 
 /// A single educator-authored forum post - title and body text only, no
@@ -213,6 +255,7 @@ class EducatorLogic {
     EducatorForumPostsDataSource? educatorForumPostsDataSource,
     EducatorProfileDataSource? educatorProfileDataSource,
     EducatorForumEngagementDataSource? educatorForumEngagementDataSource,
+    EducatorVideoEngagementDataSource? educatorVideoEngagementDataSource,
     ProfilesDataSource? profilesDataSource,
   })  : _explicitClient = client,
         _explicitEducatorVideosDataSource = educatorVideosDataSource,
@@ -220,6 +263,8 @@ class EducatorLogic {
         _explicitEducatorProfileDataSource = educatorProfileDataSource,
         _explicitEducatorForumEngagementDataSource =
             educatorForumEngagementDataSource,
+        _explicitEducatorVideoEngagementDataSource =
+            educatorVideoEngagementDataSource,
         _explicitProfilesDataSource = profilesDataSource;
 
   final SupabaseClient? _explicitClient;
@@ -246,6 +291,13 @@ class EducatorLogic {
       _educatorForumEngagementDataSource =
       _explicitEducatorForumEngagementDataSource ??
           SupabaseEducatorForumEngagementDataSource(_client);
+
+  final EducatorVideoEngagementDataSource?
+      _explicitEducatorVideoEngagementDataSource;
+  late final EducatorVideoEngagementDataSource
+      _educatorVideoEngagementDataSource =
+      _explicitEducatorVideoEngagementDataSource ??
+          SupabaseEducatorVideoEngagementDataSource(_client);
 
   /// Used only to resolve a forum-post commenter's identity when they're
   /// not found in `educators` - a comment's author could be either a Notes
@@ -766,6 +818,159 @@ class EducatorLogic {
         authorAvatarUrl: (author?['avatar_url'] as String?)?.trim(),
       );
     }).toList();
+  }
+
+  /// Fetches an educator's videos along with their like/comment engagement.
+  /// `currentUserId` (nullable) is only used to compute
+  /// [EducatorVideoWithEngagement.isLikedByCurrentUser] - it must never gate
+  /// the fetch itself, since the public channel page calls this while fully
+  /// signed out.
+  Future<List<EducatorVideoWithEngagement>>
+      fetchVideosWithEngagementForEducator(
+    String educatorId,
+  ) async {
+    final videos = await fetchVideosForEducator(educatorId);
+    if (videos.isEmpty) return [];
+
+    final ids = videos.map((video) => video.id).toList();
+    final currentUserId = _educatorVideoEngagementDataSource.currentUserId;
+
+    final likesRows =
+        await _educatorVideoEngagementDataSource.selectLikesForVideoIds(ids);
+    final commentCountRows = await _educatorVideoEngagementDataSource
+        .selectCommentCountRowsForVideoIds(ids);
+
+    final likeCounts = <String, int>{};
+    final likedByCurrentUser = <String>{};
+    for (final row in likesRows) {
+      final videoId = row['video_id'].toString();
+      likeCounts[videoId] = (likeCounts[videoId] ?? 0) + 1;
+      if (currentUserId != null && row['user_id'].toString() == currentUserId) {
+        likedByCurrentUser.add(videoId);
+      }
+    }
+
+    final commentCounts = <String, int>{};
+    for (final row in commentCountRows) {
+      final videoId = row['video_id'].toString();
+      commentCounts[videoId] = (commentCounts[videoId] ?? 0) + 1;
+    }
+
+    return videos.map((video) {
+      return EducatorVideoWithEngagement(
+        video: video,
+        likeCount: likeCounts[video.id] ?? 0,
+        commentCount: commentCounts[video.id] ?? 0,
+        isLikedByCurrentUser: likedByCurrentUser.contains(video.id),
+      );
+    }).toList();
+  }
+
+  /// Throws when signed out (unlike a silent no-op) - a signed-out visitor
+  /// reaching this is a real, expected case on the public hub/channel page,
+  /// not dead code, so the UI needs a real signal to show a "sign in to
+  /// like" message instead. Mirrors `toggleForumPostLike`.
+  Future<void> toggleVideoLike(String videoId) async {
+    final userId = _educatorVideoEngagementDataSource.currentUserId;
+    if (userId == null) {
+      throw Exception('You are not logged in.');
+    }
+
+    final existing = await _educatorVideoEngagementDataSource.selectLike(
+      videoId: videoId,
+      userId: userId,
+    );
+
+    if (existing == null) {
+      await _educatorVideoEngagementDataSource.insertLike(
+        videoId: videoId,
+        userId: userId,
+      );
+    } else {
+      await _educatorVideoEngagementDataSource.deleteLike(
+        videoId: videoId,
+        userId: userId,
+      );
+    }
+  }
+
+  Future<List<VideoCommentItem>> fetchVideoComments(String videoId) async {
+    final rows =
+        await _educatorVideoEngagementDataSource.selectCommentsForVideo(
+      videoId,
+    );
+    final authorIds =
+        rows.map((row) => row['user_id'].toString()).toSet().toList();
+    final authors = await _resolveCommentAuthors(authorIds);
+
+    return rows.map((row) {
+      final authorId = row['user_id'].toString();
+      final author = authors[authorId];
+      final createdValue = row['created_at'];
+      return VideoCommentItem(
+        id: row['id'].toString(),
+        videoId: row['video_id'].toString(),
+        authorId: authorId,
+        authorUsername: author?.username ?? 'unknown',
+        authorAvatarUrl: author?.avatarUrl,
+        content: (row['content'] ?? '').toString(),
+        createdAt: createdValue == null
+            ? DateTime.now().toUtc()
+            : DateTime.parse(createdValue.toString()).toUtc(),
+      );
+    }).toList();
+  }
+
+  Future<void> addVideoComment({
+    required String videoId,
+    required String content,
+  }) async {
+    final userId = _educatorVideoEngagementDataSource.currentUserId;
+    if (userId == null) {
+      throw Exception('You are not logged in.');
+    }
+    final trimmed = content.trim();
+    if (trimmed.isEmpty) {
+      throw Exception('Comment cannot be empty.');
+    }
+    if (trimmed.length > 500) {
+      throw Exception('Comment is too long (max 500 characters).');
+    }
+    await _educatorVideoEngagementDataSource.insertComment({
+      'video_id': videoId,
+      'user_id': userId,
+      'content': trimmed,
+    });
+  }
+
+  /// Fetches a single video (regardless of who wrote it) along with its live
+  /// like/comment engagement - used to refresh engagement for a video
+  /// reached via the public hub, which only has the video's own id. Throws
+  /// if no such video exists. Mirrors `fetchForumPostWithEngagementById`.
+  Future<EducatorVideoWithEngagement> fetchVideoWithEngagementById(
+    String videoId,
+  ) async {
+    final row = await _educatorVideosDataSource.selectVideoById(videoId);
+    if (row == null) {
+      throw Exception('Video not found.');
+    }
+    final video = EducatorVideoItem.fromMap(row);
+
+    final currentUserId = _educatorVideoEngagementDataSource.currentUserId;
+    final likesRows = await _educatorVideoEngagementDataSource
+        .selectLikesForVideoIds([videoId]);
+    final commentCountRows = await _educatorVideoEngagementDataSource
+        .selectCommentCountRowsForVideoIds([videoId]);
+
+    final isLikedByCurrentUser = currentUserId != null &&
+        likesRows.any((row) => row['user_id'].toString() == currentUserId);
+
+    return EducatorVideoWithEngagement(
+      video: video,
+      likeCount: likesRows.length,
+      commentCount: commentCountRows.length,
+      isLikedByCurrentUser: isLikedByCurrentUser,
+    );
   }
 
   static List<ForumPostItem> _sortForumPostsNewestFirst(
