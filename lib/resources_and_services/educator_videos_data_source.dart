@@ -17,6 +17,15 @@ abstract class EducatorVideosDataSource {
     required String educatorId,
   });
 
+  /// Videos across ALL educators, newest-updated-first, capped at [limit] -
+  /// each row includes the authoring educator's id/username/avatar_url
+  /// (embedded, not a separate per-row fetch) under an `educators` key. Used
+  /// by the public hub, which browses across every educator rather than one
+  /// at a time like every other query in this file.
+  Future<List<Map<String, dynamic>>> selectRecentVideosWithAuthor({
+    required int limit,
+  });
+
   Future<Map<String, dynamic>> insertVideo(Map<String, dynamic> values);
 
   Future<void> updateVideoById(String id, Map<String, dynamic> values);
@@ -45,6 +54,21 @@ class SupabaseEducatorVideosDataSource implements EducatorVideosDataSource {
         .select(_columns)
         .eq('educator_id', educatorId)
         .order('updated_at', ascending: false);
+    return (rows as List<dynamic>).cast<Map<String, dynamic>>();
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> selectRecentVideosWithAuthor({
+    required int limit,
+  }) async {
+    final rows = await _client
+        .from('educator_videos')
+        .select(
+          'id,title,description,duration_label,created_at,updated_at,'
+          'educator_id,educators(id,username,avatar_url)',
+        )
+        .order('updated_at', ascending: false)
+        .limit(limit);
     return (rows as List<dynamic>).cast<Map<String, dynamic>>();
   }
 
