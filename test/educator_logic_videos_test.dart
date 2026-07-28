@@ -198,5 +198,82 @@ void main() {
         await expectLater(logic.deleteVideo('nonexistent'), completes);
       });
     });
+
+    group('fetchRecentVideos', () {
+      test('maps rows across educators, including the embedded author',
+          () async {
+        dataSource.educators['educator-1'] = {
+          'id': 'educator-1',
+          'username': 'alice',
+          'avatar_url': 'https://example.com/alice.png',
+        };
+        dataSource.educators['educator-2'] = {
+          'id': 'educator-2',
+          'username': 'bob',
+        };
+        dataSource.rows.addAll([
+          {
+            'id': 'video-a',
+            'educator_id': 'educator-1',
+            'title': "Alice's video",
+            'description': '',
+            'duration_label': null,
+            'updated_at': '2024-01-01T00:00:00.000Z',
+            'created_at': '2024-01-01T00:00:00.000Z',
+          },
+          {
+            'id': 'video-b',
+            'educator_id': 'educator-2',
+            'title': "Bob's video",
+            'description': '',
+            'duration_label': null,
+            'updated_at': '2024-06-01T00:00:00.000Z',
+            'created_at': '2024-06-01T00:00:00.000Z',
+          },
+        ]);
+
+        final results = await logic.fetchRecentVideos();
+
+        expect(results, hasLength(2));
+        expect(results.first.video.id, 'video-b');
+        expect(results.first.educatorId, 'educator-2');
+        expect(results.first.authorUsername, 'bob');
+        expect(results.first.authorAvatarUrl, isNull);
+        expect(results.last.authorUsername, 'alice');
+        expect(results.last.authorAvatarUrl, 'https://example.com/alice.png');
+      });
+
+      test('respects the limit', () async {
+        dataSource.educators['educator-1'] = {
+          'id': 'educator-1',
+          'username': 'alice',
+        };
+        dataSource.rows.addAll([
+          {
+            'id': 'video-a',
+            'educator_id': 'educator-1',
+            'title': 'A',
+            'description': '',
+            'duration_label': null,
+            'updated_at': '2024-01-01T00:00:00.000Z',
+            'created_at': '2024-01-01T00:00:00.000Z',
+          },
+          {
+            'id': 'video-b',
+            'educator_id': 'educator-1',
+            'title': 'B',
+            'description': '',
+            'duration_label': null,
+            'updated_at': '2024-06-01T00:00:00.000Z',
+            'created_at': '2024-06-01T00:00:00.000Z',
+          },
+        ]);
+
+        final results = await logic.fetchRecentVideos(limit: 1);
+
+        expect(results, hasLength(1));
+        expect(results.single.video.id, 'video-b');
+      });
+    });
   });
 }

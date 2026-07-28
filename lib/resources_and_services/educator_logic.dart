@@ -56,6 +56,23 @@ class EducatorVideoItem {
   }
 }
 
+/// An [EducatorVideoItem] plus the authoring educator's identity - used when
+/// browsing across ALL educators (the public hub), unlike every other use of
+/// `EducatorVideoItem`, which is already scoped to one known educator.
+class EducatorVideoItemWithAuthor {
+  const EducatorVideoItemWithAuthor({
+    required this.video,
+    required this.educatorId,
+    required this.authorUsername,
+    required this.authorAvatarUrl,
+  });
+
+  final EducatorVideoItem video;
+  final String educatorId;
+  final String authorUsername;
+  final String? authorAvatarUrl;
+}
+
 /// A single educator-authored forum post - title and body text only, no
 /// video.
 class ForumPostItem {
@@ -92,6 +109,23 @@ class ForumPostItem {
       updatedAt: updatedAt,
     );
   }
+}
+
+/// A [ForumPostItem] plus the authoring educator's identity - used when
+/// browsing across ALL educators (the public hub), unlike every other use of
+/// `ForumPostItem`, which is already scoped to one known educator.
+class ForumPostItemWithAuthor {
+  const ForumPostItemWithAuthor({
+    required this.post,
+    required this.educatorId,
+    required this.authorUsername,
+    required this.authorAvatarUrl,
+  });
+
+  final ForumPostItem post;
+  final String educatorId;
+  final String authorUsername;
+  final String? authorAvatarUrl;
 }
 
 /// A [ForumPostItem] plus its like/comment engagement - no author fields
@@ -712,6 +746,28 @@ class EducatorLogic {
     await _educatorVideosDataSource.deleteVideoById(videoId);
   }
 
+  /// Videos across ALL educators, newest-updated-first, capped at [limit] -
+  /// used by the public hub. Unlike [fetchVideosForEducator], each item
+  /// carries the authoring educator's identity since the caller doesn't
+  /// already know which educator wrote which video.
+  Future<List<EducatorVideoItemWithAuthor>> fetchRecentVideos({
+    int limit = 50,
+  }) async {
+    final rows = await _educatorVideosDataSource.selectRecentVideosWithAuthor(
+      limit: limit,
+    );
+
+    return rows.map((row) {
+      final author = row['educators'] as Map<String, dynamic>?;
+      return EducatorVideoItemWithAuthor(
+        video: EducatorVideoItem.fromMap(row),
+        educatorId: row['educator_id'].toString(),
+        authorUsername: (author?['username'] ?? '').toString(),
+        authorAvatarUrl: (author?['avatar_url'] as String?)?.trim(),
+      );
+    }).toList();
+  }
+
   static List<ForumPostItem> _sortForumPostsNewestFirst(
     List<ForumPostItem> posts,
   ) {
@@ -772,6 +828,60 @@ class EducatorLogic {
 
   Future<void> deleteForumPost(String postId) async {
     await _educatorForumPostsDataSource.deleteForumPostById(postId);
+  }
+
+  /// Forum posts across ALL educators, newest-updated-first, capped at
+  /// [limit] - used by the public hub. Unlike [fetchForumPostsForEducator],
+  /// each item carries the authoring educator's identity since the caller
+  /// doesn't already know which educator wrote which post.
+  Future<List<ForumPostItemWithAuthor>> fetchRecentForumPosts({
+    int limit = 50,
+  }) async {
+    final rows =
+        await _educatorForumPostsDataSource.selectRecentForumPostsWithAuthor(
+      limit: limit,
+    );
+
+    return rows.map((row) {
+      final author = row['educators'] as Map<String, dynamic>?;
+      return ForumPostItemWithAuthor(
+        post: ForumPostItem.fromMap(row),
+        educatorId: row['educator_id'].toString(),
+        authorUsername: (author?['username'] ?? '').toString(),
+        authorAvatarUrl: (author?['avatar_url'] as String?)?.trim(),
+      );
+    }).toList();
+  }
+
+  /// Fetches a single forum post (regardless of who wrote it) along with its
+  /// live like/comment engagement - used to refresh engagement for a post
+  /// reached via the public hub, which only has the post's own id. Throws if
+  /// no such post exists.
+  Future<ForumPostWithEngagement> fetchForumPostWithEngagementById(
+    String forumPostId,
+  ) async {
+    final row =
+        await _educatorForumPostsDataSource.selectForumPostById(forumPostId);
+    if (row == null) {
+      throw Exception('Forum post not found.');
+    }
+    final post = ForumPostItem.fromMap(row);
+
+    final currentUserId = _educatorForumEngagementDataSource.currentUserId;
+    final likesRows = await _educatorForumEngagementDataSource
+        .selectLikesForForumPostIds([forumPostId]);
+    final commentCountRows = await _educatorForumEngagementDataSource
+        .selectCommentCountRowsForForumPostIds([forumPostId]);
+
+    final isLikedByCurrentUser = currentUserId != null &&
+        likesRows.any((row) => row['user_id'].toString() == currentUserId);
+
+    return ForumPostWithEngagement(
+      post: post,
+      likeCount: likesRows.length,
+      commentCount: commentCountRows.length,
+      isLikedByCurrentUser: isLikedByCurrentUser,
+    );
   }
 
   /// Fetches an educator's forum posts along with their like/comment

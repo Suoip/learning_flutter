@@ -169,5 +169,78 @@ void main() {
         await expectLater(logic.deleteForumPost('nonexistent'), completes);
       });
     });
+
+    group('fetchRecentForumPosts', () {
+      test('maps rows across educators, including the embedded author',
+          () async {
+        dataSource.educators['educator-1'] = {
+          'id': 'educator-1',
+          'username': 'alice',
+          'avatar_url': 'https://example.com/alice.png',
+        };
+        dataSource.educators['educator-2'] = {
+          'id': 'educator-2',
+          'username': 'bob',
+        };
+        dataSource.rows.addAll([
+          {
+            'id': 'post-a',
+            'educator_id': 'educator-1',
+            'title': "Alice's post",
+            'description': '',
+            'updated_at': '2024-01-01T00:00:00.000Z',
+            'created_at': '2024-01-01T00:00:00.000Z',
+          },
+          {
+            'id': 'post-b',
+            'educator_id': 'educator-2',
+            'title': "Bob's post",
+            'description': '',
+            'updated_at': '2024-06-01T00:00:00.000Z',
+            'created_at': '2024-06-01T00:00:00.000Z',
+          },
+        ]);
+
+        final results = await logic.fetchRecentForumPosts();
+
+        expect(results, hasLength(2));
+        expect(results.first.post.id, 'post-b');
+        expect(results.first.educatorId, 'educator-2');
+        expect(results.first.authorUsername, 'bob');
+        expect(results.first.authorAvatarUrl, isNull);
+        expect(results.last.authorUsername, 'alice');
+        expect(results.last.authorAvatarUrl, 'https://example.com/alice.png');
+      });
+
+      test('respects the limit', () async {
+        dataSource.educators['educator-1'] = {
+          'id': 'educator-1',
+          'username': 'alice',
+        };
+        dataSource.rows.addAll([
+          {
+            'id': 'post-a',
+            'educator_id': 'educator-1',
+            'title': 'A',
+            'description': '',
+            'updated_at': '2024-01-01T00:00:00.000Z',
+            'created_at': '2024-01-01T00:00:00.000Z',
+          },
+          {
+            'id': 'post-b',
+            'educator_id': 'educator-1',
+            'title': 'B',
+            'description': '',
+            'updated_at': '2024-06-01T00:00:00.000Z',
+            'created_at': '2024-06-01T00:00:00.000Z',
+          },
+        ]);
+
+        final results = await logic.fetchRecentForumPosts(limit: 1);
+
+        expect(results, hasLength(1));
+        expect(results.single.post.id, 'post-b');
+      });
+    });
   });
 }

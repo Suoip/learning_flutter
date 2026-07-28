@@ -9,6 +9,11 @@ import 'package:new_project/resources_and_services/educator_videos_data_source.d
 /// [FakeNotesDataSource]: fake_notes_data_source.dart
 class FakeEducatorVideosDataSource implements EducatorVideosDataSource {
   final List<Map<String, dynamic>> rows = [];
+
+  /// Keyed by educator id - populated by tests to simulate the real
+  /// `educators` embed for [selectRecentVideosWithAuthor].
+  final Map<String, Map<String, dynamic>> educators = {};
+
   int _nextId = 1;
 
   @override
@@ -22,6 +27,22 @@ class FakeEducatorVideosDataSource implements EducatorVideosDataSource {
         .where((row) => row['educator_id'] == educatorId)
         .map((row) => Map<String, dynamic>.from(row))
         .toList();
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> selectRecentVideosWithAuthor({
+    required int limit,
+  }) async {
+    final sorted = [...rows]..sort(
+        (a, b) =>
+            (b['updated_at'] as String).compareTo(a['updated_at'] as String),
+      );
+    return sorted.take(limit).map((row) {
+      return {
+        ...row,
+        'educators': educators[row['educator_id']],
+      };
+    }).toList();
   }
 
   @override

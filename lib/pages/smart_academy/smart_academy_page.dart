@@ -10,10 +10,11 @@ import 'smart_academy_entry.dart';
 import 'smart_academy_hub_toolbar.dart';
 import 'smart_academy_not_an_educator_page.dart';
 
-/// SmartAcademy's main hub: a YouTube-style grid of placeholder education
-/// videos, plus a separate forum-style section of text-only posts. Static
-/// sample data only for now - no backend yet. Public/browsable without an
-/// account; the AppBar action is the only entry point into educator auth.
+/// SmartAcademy's main hub: a YouTube-style grid of real educator-authored
+/// videos (metadata only, no file upload yet), plus a separate forum-style
+/// section of real text-only posts, across ALL educators. Public/browsable
+/// without an account; the AppBar action is the only entry point into
+/// educator auth.
 class SmartAcademyPage extends StatefulWidget {
   const SmartAcademyPage({super.key});
 
@@ -28,6 +29,14 @@ class _SmartAcademyPageState extends State<SmartAcademyPage> {
   String _searchQuery = '';
   SmartAcademyHubFilter _activeFilter = SmartAcademyHubFilter.all;
 
+  List<SmartAcademyEntry> _videos = [];
+  bool _loadingVideos = true;
+  String? _videosError;
+
+  List<SmartAcademyEntry> _posts = [];
+  bool _loadingPosts = true;
+  String? _postsError;
+
   @override
   void initState() {
     super.initState();
@@ -36,12 +45,87 @@ class _SmartAcademyPageState extends State<SmartAcademyPage> {
         _searchQuery = _searchController.text;
       });
     });
+    _loadVideos();
+    _loadForumPosts();
   }
 
   @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+
+  Future<void> _refreshAll() {
+    return Future.wait([_loadVideos(), _loadForumPosts()]);
+  }
+
+  Future<void> _loadVideos() async {
+    setState(() {
+      _loadingVideos = true;
+      _videosError = null;
+    });
+
+    try {
+      final videos = await _logic.fetchRecentVideos();
+      if (!mounted) return;
+      setState(() {
+        _videos = videos.map((item) {
+          return SmartAcademyEntry(
+            id: item.video.id,
+            kind: SmartAcademyEntryKind.video,
+            title: item.video.title,
+            authorName: item.authorUsername,
+            educatorId: item.educatorId,
+            description: item.video.description,
+            durationLabel: item.video.durationLabel,
+          );
+        }).toList();
+        _loadingVideos = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _loadingVideos = false;
+        _videosError = EducatorLogic.userMessageForError(
+          error,
+          fallback: 'Could not load videos.',
+        );
+      });
+    }
+  }
+
+  Future<void> _loadForumPosts() async {
+    setState(() {
+      _loadingPosts = true;
+      _postsError = null;
+    });
+
+    try {
+      final posts = await _logic.fetchRecentForumPosts();
+      if (!mounted) return;
+      setState(() {
+        _posts = posts.map((item) {
+          return SmartAcademyEntry(
+            id: item.post.id,
+            kind: SmartAcademyEntryKind.forum,
+            title: item.post.title,
+            authorName: item.authorUsername,
+            educatorId: item.educatorId,
+            description: item.post.description,
+          );
+        }).toList();
+        _loadingPosts = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _loadingPosts = false;
+        _postsError = EducatorLogic.userMessageForError(
+          error,
+          fallback: 'Could not load forum posts.',
+        );
+      });
+    }
   }
 
   static int _videoColumnsForWidth(double width) {
@@ -132,6 +216,137 @@ class _SmartAcademyPageState extends State<SmartAcademyPage> {
     setState(() {});
   }
 
+  Widget _buildVideosSection(ThemeData theme) {
+    final cs = theme.colorScheme;
+
+    Widget content;
+    if (_loadingVideos) {
+      content = const Padding(
+        padding: EdgeInsets.symmetric(vertical: 32),
+        child: Center(child: CircularProgressIndicator()),
+      );
+    } else if (_videosError != null) {
+      content = Card(
+        color: cs.errorContainer,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Text(
+            _videosError!,
+            style: TextStyle(color: cs.onErrorContainer),
+          ),
+        ),
+      );
+    } else if (_videos.isEmpty) {
+      content = Text(
+        'No videos published yet.',
+        style: theme.textTheme.bodyMedium,
+      );
+    } else {
+      final filteredVideos = filterSmartAcademyEntries(
+        entries: _videos,
+        searchQuery: _searchQuery,
+      );
+      if (filteredVideos.isEmpty) {
+        content = Text(
+          'No videos match your search.',
+          style: theme.textTheme.bodyMedium,
+        );
+      } else {
+        content = LayoutBuilder(
+          builder: (context, constraints) {
+            final columns = _videoColumnsForWidth(constraints.maxWidth);
+            const spacing = 12.0;
+            final cardWidth =
+                (constraints.maxWidth - ((columns - 1) * spacing)) / columns;
+
+            return Wrap(
+              spacing: spacing,
+              runSpacing: spacing,
+              children: filteredVideos.map((entry) {
+                return SizedBox(
+                  width: cardWidth,
+                  child: _VideoCard(
+                    entry: entry,
+                    onTap: () => _openEntry(context, entry),
+                  ),
+                );
+              }).toList(),
+            );
+          },
+        );
+      }
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Videos', style: theme.textTheme.titleLarge),
+        const SizedBox(height: 12),
+        content,
+      ],
+    );
+  }
+
+  Widget _buildForumSection(ThemeData theme) {
+    final cs = theme.colorScheme;
+
+    Widget content;
+    if (_loadingPosts) {
+      content = const Padding(
+        padding: EdgeInsets.symmetric(vertical: 32),
+        child: Center(child: CircularProgressIndicator()),
+      );
+    } else if (_postsError != null) {
+      content = Card(
+        color: cs.errorContainer,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Text(
+            _postsError!,
+            style: TextStyle(color: cs.onErrorContainer),
+          ),
+        ),
+      );
+    } else if (_posts.isEmpty) {
+      content = Text(
+        'No forum posts published yet.',
+        style: theme.textTheme.bodyMedium,
+      );
+    } else {
+      final filteredForum = filterSmartAcademyEntries(
+        entries: _posts,
+        searchQuery: _searchQuery,
+      );
+      if (filteredForum.isEmpty) {
+        content = Text(
+          'No forum posts match your search.',
+          style: theme.textTheme.bodyMedium,
+        );
+      } else {
+        content = Column(
+          children: filteredForum.map((entry) {
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: _ForumEntryCard(
+                entry: entry,
+                onTap: () => _openEntry(context, entry),
+              ),
+            );
+          }).toList(),
+        );
+      }
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Forum', style: theme.textTheme.titleLarge),
+        const SizedBox(height: 12),
+        content,
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -139,14 +354,6 @@ class _SmartAcademyPageState extends State<SmartAcademyPage> {
 
     final showVideos = _activeFilter != SmartAcademyHubFilter.forum;
     final showForum = _activeFilter != SmartAcademyHubFilter.videos;
-    final filteredVideos = filterSmartAcademyEntries(
-      entries: sampleVideoEntries,
-      searchQuery: _searchQuery,
-    );
-    final filteredForum = filterSmartAcademyEntries(
-      entries: sampleForumEntries,
-      searchQuery: _searchQuery,
-    );
 
     return Scaffold(
       appBar: AppBar(
@@ -161,79 +368,33 @@ class _SmartAcademyPageState extends State<SmartAcademyPage> {
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 40),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const EducatorSearchBar(),
-            const SizedBox(height: 24),
-            SmartAcademyHubToolbar(
-              searchController: _searchController,
-              activeFilter: _activeFilter,
-              onFilterChanged: (filter) {
-                setState(() {
-                  _activeFilter = filter;
-                });
-              },
-            ),
-            const SizedBox(height: 24),
-            if (showVideos) ...[
-              Text('Videos', style: theme.textTheme.titleLarge),
-              const SizedBox(height: 12),
-              if (filteredVideos.isEmpty)
-                Text(
-                  'No videos match your search.',
-                  style: theme.textTheme.bodyMedium,
-                )
-              else
-                LayoutBuilder(
-                  builder: (context, constraints) {
-                    final columns = _videoColumnsForWidth(constraints.maxWidth);
-                    const spacing = 12.0;
-                    final cardWidth =
-                        (constraints.maxWidth - ((columns - 1) * spacing)) /
-                            columns;
-
-                    return Wrap(
-                      spacing: spacing,
-                      runSpacing: spacing,
-                      children: filteredVideos.map((entry) {
-                        return SizedBox(
-                          width: cardWidth,
-                          child: _VideoCard(
-                            entry: entry,
-                            onTap: () => _openEntry(context, entry),
-                          ),
-                        );
-                      }).toList(),
-                    );
-                  },
-                ),
-              const SizedBox(height: 32),
+      body: RefreshIndicator(
+        onRefresh: _refreshAll,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 40),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const EducatorSearchBar(),
+              const SizedBox(height: 24),
+              SmartAcademyHubToolbar(
+                searchController: _searchController,
+                activeFilter: _activeFilter,
+                onFilterChanged: (filter) {
+                  setState(() {
+                    _activeFilter = filter;
+                  });
+                },
+              ),
+              const SizedBox(height: 24),
+              if (showVideos) ...[
+                _buildVideosSection(theme),
+                const SizedBox(height: 32),
+              ],
+              if (showForum) _buildForumSection(theme),
             ],
-            if (showForum) ...[
-              Text('Forum', style: theme.textTheme.titleLarge),
-              const SizedBox(height: 12),
-              if (filteredForum.isEmpty)
-                Text(
-                  'No forum posts match your search.',
-                  style: theme.textTheme.bodyMedium,
-                )
-              else
-                Column(
-                  children: filteredForum.map((entry) {
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: _ForumEntryCard(
-                        entry: entry,
-                        onTap: () => _openEntry(context, entry),
-                      ),
-                    );
-                  }).toList(),
-                ),
-            ],
-          ],
+          ),
         ),
       ),
     );

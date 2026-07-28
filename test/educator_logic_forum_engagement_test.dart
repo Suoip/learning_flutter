@@ -207,5 +207,44 @@ void main() {
         expect(engagementDataSource.comments.single['user_id'], 'educator-1');
       });
     });
+
+    group('fetchForumPostWithEngagementById', () {
+      test('throws when no post exists for the id', () {
+        expect(
+          () => logic.fetchForumPostWithEngagementById('missing'),
+          throwsException,
+        );
+      });
+
+      test('returns the post with correct like/comment counts', () async {
+        postsDataSource.rows.add(_post());
+        engagementDataSource.likes.addAll([
+          {'forum_post_id': 'post-a', 'user_id': 'educator-1'},
+          {'forum_post_id': 'post-a', 'user_id': 'reader-1'},
+        ]);
+        engagementDataSource.comments.add(_comment(userId: 'reader-1'));
+
+        final result = await logic.fetchForumPostWithEngagementById('post-a');
+
+        expect(result.post.id, 'post-a');
+        expect(result.likeCount, 2);
+        expect(result.commentCount, 1);
+        expect(result.isLikedByCurrentUser, isTrue);
+      });
+
+      test('is false for isLikedByCurrentUser when signed out', () async {
+        postsDataSource.rows.add(_post());
+        engagementDataSource.currentUserId = null;
+        engagementDataSource.likes.add({
+          'forum_post_id': 'post-a',
+          'user_id': 'reader-1',
+        });
+
+        final result = await logic.fetchForumPostWithEngagementById('post-a');
+
+        expect(result.likeCount, 1);
+        expect(result.isLikedByCurrentUser, isFalse);
+      });
+    });
   });
 }

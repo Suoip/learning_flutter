@@ -8,6 +8,7 @@ void main() {
       kind: SmartAcademyEntryKind.video,
       title: 'Dart Null Safety in 12 Minutes',
       authorName: 'Priya Raman',
+      educatorId: 'educator-1',
       description: '',
       durationLabel: '12:34',
     );
@@ -16,6 +17,7 @@ void main() {
       kind: SmartAcademyEntryKind.video,
       title: 'Flutter Layouts Explained',
       authorName: 'Diego Fuentes',
+      educatorId: 'educator-2',
       description: '',
       durationLabel: '18:07',
     );
@@ -24,6 +26,7 @@ void main() {
       kind: SmartAcademyEntryKind.forum,
       title: 'Why is my build slow?',
       authorName: 'jordan_codes',
+      educatorId: 'educator-3',
       description: '',
     );
     final entries = [dartVideo, flutterVideo, forumPost];
