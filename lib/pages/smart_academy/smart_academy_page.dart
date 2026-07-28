@@ -7,6 +7,7 @@ import 'smart_academy_activation_required_page.dart';
 import 'smart_academy_auth_page.dart';
 import 'smart_academy_detail_page.dart';
 import 'smart_academy_entry.dart';
+import 'smart_academy_hub_toolbar.dart';
 import 'smart_academy_not_an_educator_page.dart';
 
 /// SmartAcademy's main hub: a YouTube-style grid of placeholder education
@@ -22,6 +23,26 @@ class SmartAcademyPage extends StatefulWidget {
 
 class _SmartAcademyPageState extends State<SmartAcademyPage> {
   final EducatorLogic _logic = EducatorLogic();
+  final TextEditingController _searchController = TextEditingController();
+
+  String _searchQuery = '';
+  SmartAcademyHubFilter _activeFilter = SmartAcademyHubFilter.all;
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController.addListener(() {
+      setState(() {
+        _searchQuery = _searchController.text;
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   static int _videoColumnsForWidth(double width) {
     if (width >= 1600) return 5;
@@ -116,6 +137,17 @@ class _SmartAcademyPageState extends State<SmartAcademyPage> {
     final theme = Theme.of(context);
     final user = _logic.currentUser;
 
+    final showVideos = _activeFilter != SmartAcademyHubFilter.forum;
+    final showForum = _activeFilter != SmartAcademyHubFilter.videos;
+    final filteredVideos = filterSmartAcademyEntries(
+      entries: sampleVideoEntries,
+      searchQuery: _searchQuery,
+    );
+    final filteredForum = filterSmartAcademyEntries(
+      entries: sampleForumEntries,
+      searchQuery: _searchQuery,
+    );
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('SmartAcademy'),
@@ -136,45 +168,71 @@ class _SmartAcademyPageState extends State<SmartAcademyPage> {
           children: [
             const EducatorSearchBar(),
             const SizedBox(height: 24),
-            Text('Videos', style: theme.textTheme.titleLarge),
-            const SizedBox(height: 12),
-            LayoutBuilder(
-              builder: (context, constraints) {
-                final columns = _videoColumnsForWidth(constraints.maxWidth);
-                const spacing = 12.0;
-                final cardWidth =
-                    (constraints.maxWidth - ((columns - 1) * spacing)) /
-                        columns;
+            SmartAcademyHubToolbar(
+              searchController: _searchController,
+              activeFilter: _activeFilter,
+              onFilterChanged: (filter) {
+                setState(() {
+                  _activeFilter = filter;
+                });
+              },
+            ),
+            const SizedBox(height: 24),
+            if (showVideos) ...[
+              Text('Videos', style: theme.textTheme.titleLarge),
+              const SizedBox(height: 12),
+              if (filteredVideos.isEmpty)
+                Text(
+                  'No videos match your search.',
+                  style: theme.textTheme.bodyMedium,
+                )
+              else
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final columns = _videoColumnsForWidth(constraints.maxWidth);
+                    const spacing = 12.0;
+                    final cardWidth =
+                        (constraints.maxWidth - ((columns - 1) * spacing)) /
+                            columns;
 
-                return Wrap(
-                  spacing: spacing,
-                  runSpacing: spacing,
-                  children: sampleVideoEntries.map((entry) {
-                    return SizedBox(
-                      width: cardWidth,
-                      child: _VideoCard(
+                    return Wrap(
+                      spacing: spacing,
+                      runSpacing: spacing,
+                      children: filteredVideos.map((entry) {
+                        return SizedBox(
+                          width: cardWidth,
+                          child: _VideoCard(
+                            entry: entry,
+                            onTap: () => _openEntry(context, entry),
+                          ),
+                        );
+                      }).toList(),
+                    );
+                  },
+                ),
+              const SizedBox(height: 32),
+            ],
+            if (showForum) ...[
+              Text('Forum', style: theme.textTheme.titleLarge),
+              const SizedBox(height: 12),
+              if (filteredForum.isEmpty)
+                Text(
+                  'No forum posts match your search.',
+                  style: theme.textTheme.bodyMedium,
+                )
+              else
+                Column(
+                  children: filteredForum.map((entry) {
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: _ForumEntryCard(
                         entry: entry,
                         onTap: () => _openEntry(context, entry),
                       ),
                     );
                   }).toList(),
-                );
-              },
-            ),
-            const SizedBox(height: 32),
-            Text('Forum', style: theme.textTheme.titleLarge),
-            const SizedBox(height: 12),
-            Column(
-              children: sampleForumEntries.map((entry) {
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: _ForumEntryCard(
-                    entry: entry,
-                    onTap: () => _openEntry(context, entry),
-                  ),
-                );
-              }).toList(),
-            ),
+                ),
+            ],
           ],
         ),
       ),
