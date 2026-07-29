@@ -21,7 +21,7 @@ class NoteEditorPage extends StatefulWidget {
   final bool isPinned;
   final VoidCallback onToggleFavorite;
   final VoidCallback onTogglePin;
-  final VoidCallback onTogglePublish;
+  final Future<bool> Function() onTogglePublish;
 
   @override
   State<NoteEditorPage> createState() => _NoteEditorPageState();
@@ -59,9 +59,11 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
     widget.onTogglePin();
   }
 
-  void _handleTogglePublish() {
-    setState(() => _isPublished = !_isPublished);
-    widget.onTogglePublish();
+  Future<void> _handleTogglePublish() async {
+    final didToggle = await widget.onTogglePublish();
+    if (didToggle && mounted) {
+      setState(() => _isPublished = !_isPublished);
+    }
   }
 
   @override

@@ -254,8 +254,31 @@ class _NotesPageState extends State<NotesPage> {
     }
   }
 
-  Future<void> _togglePublish(NoteItem note) async {
+  Future<bool> _togglePublish(NoteItem note) async {
     final published = _publishedNoteIds.contains(note.id);
+
+    if (!published) {
+      List<FriendItem> friends;
+      try {
+        friends = await _logic.fetchFriends();
+      } catch (error) {
+        if (!mounted) return false;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              _friendly(error, fallback: 'Could not check your friends list.'),
+            ),
+          ),
+        );
+        return false;
+      }
+      if (!mounted) return false;
+      if (friends.isNotEmpty) {
+        final confirmed = await _showPublishConfirmationDialog(friends);
+        if (!confirmed) return false;
+      }
+    }
+
     try {
       if (published) {
         await _logic.unpublishNoteFromFriends(note.id);
@@ -263,7 +286,7 @@ class _NotesPageState extends State<NotesPage> {
         await _logic.publishNoteToFriends(note);
       }
       await _loadPublishedNotes();
-      if (!mounted) return;
+      if (!mounted) return true;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -273,8 +296,9 @@ class _NotesPageState extends State<NotesPage> {
           ),
         ),
       );
+      return true;
     } catch (error) {
-      if (!mounted) return;
+      if (!mounted) return false;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -282,7 +306,40 @@ class _NotesPageState extends State<NotesPage> {
           ),
         ),
       );
+      return false;
     }
+  }
+
+  Future<bool> _showPublishConfirmationDialog(List<FriendItem> friends) async {
+    const maxShown = 8;
+    final shown =
+        friends.take(maxShown).map((f) => '@${f.friend.username}').join(', ');
+    final remaining = friends.length - maxShown;
+    final usernamesText = remaining > 0 ? '$shown, and $remaining more' : shown;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Publish note?'),
+          content: Text(
+            'This will publish the note to your ${friends.length} '
+            'friend${friends.length == 1 ? '' : 's'}: $usernamesText',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Publish'),
+            ),
+          ],
+        );
+      },
+    );
+    return confirmed ?? false;
   }
 
   Future<void> _deleteNote(NoteItem note) async {
