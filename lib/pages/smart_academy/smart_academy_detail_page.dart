@@ -452,12 +452,23 @@ class _SmartAcademyDetailPageState extends State<SmartAcademyDetailPage> {
                 const SizedBox(height: 8),
                 InkWell(
                   onTap: _openAuthorChannel,
-                  child: Text(
-                    'by ${entry.authorName}',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: cs.primary,
-                      decoration: TextDecoration.underline,
-                    ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      EducatorProfileAvatar(
+                        username: entry.authorName,
+                        avatarUrl: entry.authorAvatarUrl,
+                        radius: 12,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'by ${entry.authorName}',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: cs.primary,
+                          decoration: TextDecoration.underline,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 const SizedBox(height: 20),

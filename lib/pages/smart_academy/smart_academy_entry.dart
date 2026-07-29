@@ -13,6 +13,7 @@ class SmartAcademyEntry {
     required this.authorName,
     required this.educatorId,
     required this.description,
+    this.authorAvatarUrl,
     this.durationLabel,
   });
 
@@ -21,6 +22,7 @@ class SmartAcademyEntry {
   final String title;
   final String authorName;
   final String educatorId;
+  final String? authorAvatarUrl;
   final String description;
 
   /// Video-only, e.g. "12:34". Null for forum entries.
