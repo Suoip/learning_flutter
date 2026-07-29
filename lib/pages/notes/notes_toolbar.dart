@@ -57,7 +57,7 @@ class NotesToolbar extends StatelessWidget {
                   child: TextField(
                     controller: searchController,
                     decoration: const InputDecoration(
-                      hintText: 'Search by title',
+                      hintText: 'Search by title or content',
                       prefixIcon: Icon(Icons.search_rounded),
                     ),
                   ),

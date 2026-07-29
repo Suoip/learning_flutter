@@ -505,8 +505,9 @@ class NotesLogic {
     final query = searchQuery.trim().toLowerCase();
 
     final filtered = notes.where((note) {
-      final matchesQuery =
-          query.isEmpty || note.title.toLowerCase().contains(query);
+      final matchesQuery = query.isEmpty ||
+          note.title.toLowerCase().contains(query) ||
+          note.content.toLowerCase().contains(query);
       if (!matchesQuery) return false;
 
       switch (filter) {
