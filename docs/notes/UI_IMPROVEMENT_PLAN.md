@@ -278,17 +278,25 @@ Error banners were unified everywhere via a new shared `NotesErrorBanner`
 `cs.errorContainer`/`cs.onErrorContainer` style — Profile and Friends moved off their hardcoded
 `Colors.red.shade50`/`Colors.red.shade700`.
 
-### 7.3 Zero animation/transition anywhere
+### 7.3 Zero animation/transition anywhere ✅ Shipped
 
-Confirmed via grep: no `AnimatedList`, `AnimatedSwitcher`, `AnimatedContainer`, or any implicit
-animation anywhere in the feature. Concretely: deleting a note (post-undo-window) removes it from
-a plain `ListView` via instant rebuild, not an animated collapse; switching bottom-nav tabs is an
-instant `IndexedStack` swap; liking a post or toggling favorite/pin triggers a **full list
-refetch** (`_loadFeed()`/`_loadNotes()`) rather than a local optimistic icon flip, so every one of
-those actions has a visible full-list "flash" while it reloads instead of feeling instant.
-Candidate: `AnimatedList` (or a simpler `AnimatedSize`/fade) for note removal, optimistic local
-toggles for favorite/pin/like (update local state immediately, reconcile with the server response
-in the background, roll back only on error) instead of reload-the-world.
+- **Note deletion**: `Dismissible.confirmDismiss` used to always return `false` (a leftover from
+  the pre-Phase-3 confirm-dialog design), so the built-in slide+collapse animation never played.
+  Now `confirmDismiss` always returns `true` and the actual delete-with-undo logic (unchanged from
+  Phase 3) fires from `onDismissed` instead — gets the animation for free from the stock widget,
+  no custom animation code.
+- **Favorite/pin (Notes) and like (Feed) toggles**: were each a full `_loadNotes()`/`_loadFeed()`
+  refetch causing a visible whole-list flash for a single-item change. Now optimistic: `NoteItem`
+  and `SharedNoteFeedItem` gained a small `copyWith`, and each toggle updates its item in place
+  immediately, reconciling with the server in the background and only reverting (+ existing error
+  snackbar) on failure. Publish/unpublish is deliberately **not** made optimistic — it already
+  involves a confirmation dialog and an async friends fetch (Phase 3), where "refetch after" is a
+  smaller relative cost.
+- **Bottom-nav tab switches**: were an instant `IndexedStack` swap. Now the `IndexedStack` (itself
+  untouched, so Feed/Friends' `State` — and their loaded data/scroll position — survive exactly as
+  before) is wrapped in a `FadeTransition` driven by an explicit `AnimationController`, restarted
+  on every tab change. Deliberately *not* `AnimatedSwitcher`, which would dispose/recreate the
+  non-selected tabs and break Phase 1's state-preservation design.
 
 ### 7.4 Note editor rough edges
 
@@ -325,9 +333,12 @@ new theme).
 1. ~~Desktop layout (§7.1)~~ — **Deferred, not planned.** The app's main purpose is mobile; web is
    only used for faster local testing/iteration. A responsive desktop pass isn't worth the scope
    against that reality — revisit only if the project's primary usage target changes.
-2. **Order for the rest**: (a) the two tooltip fixes (§7.5) + the editor "Saved" pill bug (§7.4)
-   first — small, unambiguous fixes; (b) empty-state/error-banner unification (§7.2) next — same
-   shape as Phase 2's polish work; (c) animations (§7.3) last, scope (just the instant-snap fixes,
-   or also tab-switch transitions) to be decided when we get there.
+2. ~~Order for the rest~~ — all shipped in order: tooltip fixes + "Saved" pill bug (§7.4/§7.5),
+   then empty-state/error-banner unification (§7.2), then animations (§7.3).
 3. Autosave-while-typing (part of §7.4) is **not** bundled with the "Saved" pill fix — a bigger
    behavioral change, left for a separate explicit decision later if wanted.
+4. ~~Animation scope (§7.3)~~ — **Resolved: full scope**, including bottom-nav tab-switch
+   transitions, not just the instant-snap fixes.
+
+All of Round 2 is now shipped except §7.1 (desktop layout, deferred) and the still-open
+autosave-while-typing/word-count/keyboard-shortcut items noted in §7.4.

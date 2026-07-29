@@ -20,9 +20,14 @@ class NotesPage extends StatefulWidget {
   State<NotesPage> createState() => _NotesPageState();
 }
 
-class _NotesPageState extends State<NotesPage> {
+class _NotesPageState extends State<NotesPage>
+    with SingleTickerProviderStateMixin {
   final NotesLogic _logic = NotesLogic();
   final TextEditingController _searchController = TextEditingController();
+  late final AnimationController _tabFadeController = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 200),
+  )..value = 1.0;
 
   List<NoteItem> _notes = [];
   UserProfile? _profile;
@@ -53,6 +58,7 @@ class _NotesPageState extends State<NotesPage> {
   @override
   void dispose() {
     _searchController.dispose();
+    _tabFadeController.dispose();
     super.dispose();
   }
 
@@ -240,11 +246,21 @@ class _NotesPageState extends State<NotesPage> {
   }
 
   Future<void> _togglePin(NoteItem note) async {
+    final index = _notes.indexWhere((n) => n.id == note.id);
+    if (index == -1) return;
+
+    setState(() {
+      _notes[index] = note.copyWith(
+        isPinned: !note.isPinned,
+        updatedAt: DateTime.now().toUtc(),
+      );
+    });
+
     try {
       await _logic.togglePin(note);
-      await _loadNotes();
     } catch (error) {
       if (!mounted) return;
+      setState(() => _notes[index] = note);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
             content: Text(_friendly(error, fallback: 'Could not update pin.'))),
@@ -253,11 +269,21 @@ class _NotesPageState extends State<NotesPage> {
   }
 
   Future<void> _toggleFavorite(NoteItem note) async {
+    final index = _notes.indexWhere((n) => n.id == note.id);
+    if (index == -1) return;
+
+    setState(() {
+      _notes[index] = note.copyWith(
+        isFavorite: !note.isFavorite,
+        updatedAt: DateTime.now().toUtc(),
+      );
+    });
+
     try {
       await _logic.toggleFavorite(note);
-      await _loadNotes();
     } catch (error) {
       if (!mounted) return;
+      setState(() => _notes[index] = note);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content:
@@ -517,10 +543,7 @@ class _NotesPageState extends State<NotesPage> {
           onToggleFavorite: () => _toggleFavorite(note),
           onTogglePin: () => _togglePin(note),
           onTogglePublish: () => _togglePublish(note),
-          onConfirmDismiss: () async {
-            await _deleteNoteWithUndo(note);
-            return false;
-          },
+          onDismissed: () => _deleteNoteWithUndo(note),
         );
       },
     );
@@ -576,21 +599,28 @@ class _NotesPageState extends State<NotesPage> {
         ],
       ),
       body: SafeArea(
-        child: IndexedStack(
-          index: _selectedIndex,
-          children: [
-            _buildNotesTab(notes),
-            FeedPage(
-              isActive: _selectedIndex == 1,
-              onUnseenCountChanged: _updateUnseenFeedCount,
-            ),
-            FriendsPage(onPendingCountChanged: _updatePendingRequestsCount),
-          ],
+        child: FadeTransition(
+          opacity: CurvedAnimation(
+            parent: _tabFadeController,
+            curve: Curves.easeIn,
+          ),
+          child: IndexedStack(
+            index: _selectedIndex,
+            children: [
+              _buildNotesTab(notes),
+              FeedPage(
+                isActive: _selectedIndex == 1,
+                onUnseenCountChanged: _updateUnseenFeedCount,
+              ),
+              FriendsPage(onPendingCountChanged: _updatePendingRequestsCount),
+            ],
+          ),
         ),
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,
         onDestinationSelected: (index) {
+          _tabFadeController.forward(from: 0);
           setState(() {
             _selectedIndex = index;
           });
