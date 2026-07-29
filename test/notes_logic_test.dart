@@ -618,6 +618,37 @@ void main() {
       expect(result.map((n) => n.id), ['3']);
     });
 
+    test('matches note content case-insensitively', () {
+      final withContent = [
+        ...notes,
+        buildNote(id: '4', title: 'Untitled', content: 'Buy PASSPORT photos'),
+      ];
+      final result = NotesLogic.filterNotes(
+        notes: withContent,
+        searchQuery: 'passport',
+        filter: NoteQuickFilter.all,
+      );
+      expect(result.map((n) => n.id), ['4']);
+    });
+
+    test('combines a content-matching search query with a filter', () {
+      final withContent = [
+        ...notes,
+        buildNote(
+          id: '4',
+          title: 'Untitled',
+          content: 'Buy passport photos',
+          isFavorite: true,
+        ),
+      ];
+      final result = NotesLogic.filterNotes(
+        notes: withContent,
+        searchQuery: 'passport',
+        filter: NoteQuickFilter.favorites,
+      );
+      expect(result.map((n) => n.id), ['4']);
+    });
+
     test('returns an empty list when nothing matches', () {
       final result = NotesLogic.filterNotes(
         notes: notes,
