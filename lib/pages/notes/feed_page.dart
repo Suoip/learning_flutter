@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../resources_and_services/notes_logic.dart';
 import 'feed_post_detail_page.dart';
@@ -87,6 +88,7 @@ class _FeedPageState extends State<FeedPage> {
     final index = _feed.indexWhere((i) => i.id == item.id);
     if (index == -1) return;
 
+    HapticFeedback.lightImpact();
     final wasLiked = item.isLikedByCurrentUser;
     setState(() {
       _feed[index] = item.copyWith(

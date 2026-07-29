@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../resources_and_services/notes_logic.dart';
 import 'feed_page.dart';
@@ -249,6 +250,7 @@ class _NotesPageState extends State<NotesPage>
     final index = _notes.indexWhere((n) => n.id == note.id);
     if (index == -1) return;
 
+    HapticFeedback.lightImpact();
     setState(() {
       _notes[index] = note.copyWith(
         isPinned: !note.isPinned,
@@ -272,6 +274,7 @@ class _NotesPageState extends State<NotesPage>
     final index = _notes.indexWhere((n) => n.id == note.id);
     if (index == -1) return;
 
+    HapticFeedback.lightImpact();
     setState(() {
       _notes[index] = note.copyWith(
         isFavorite: !note.isFavorite,
@@ -295,6 +298,8 @@ class _NotesPageState extends State<NotesPage>
 
   Future<bool> _togglePublish(NoteItem note) async {
     final published = _publishedNoteIds.contains(note.id);
+
+    HapticFeedback.lightImpact();
 
     if (!published) {
       List<FriendItem> friends;
@@ -382,6 +387,7 @@ class _NotesPageState extends State<NotesPage>
   }
 
   Future<void> _deleteNoteWithUndo(NoteItem note) async {
+    HapticFeedback.mediumImpact();
     setState(() => _pendingDeleteNoteIds.add(note.id));
 
     // Finalizes any still-showing undo-snackbar for a different note right

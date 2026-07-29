@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-class PasswordFormSection extends StatelessWidget {
+class PasswordFormSection extends StatefulWidget {
   const PasswordFormSection({
     super.key,
     required this.formKey,
@@ -17,6 +17,14 @@ class PasswordFormSection extends StatelessWidget {
   final VoidCallback onSave;
 
   @override
+  State<PasswordFormSection> createState() => _PasswordFormSectionState();
+}
+
+class _PasswordFormSectionState extends State<PasswordFormSection> {
+  bool _obscurePassword = true;
+  bool _obscureConfirmPassword = true;
+
+  @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return Card(
@@ -30,7 +38,7 @@ class PasswordFormSection extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
         child: Form(
-          key: formKey,
+          key: widget.formKey,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -43,11 +51,22 @@ class PasswordFormSection extends StatelessWidget {
               ),
               const SizedBox(height: 10),
               TextFormField(
-                controller: passwordController,
-                obscureText: true,
+                controller: widget.passwordController,
+                obscureText: _obscurePassword,
                 decoration: InputDecoration(
                   labelText: 'New password',
                   prefixIcon: const Icon(Icons.lock_outline_rounded),
+                  suffixIcon: IconButton(
+                    tooltip:
+                        _obscurePassword ? 'Show password' : 'Hide password',
+                    icon: Icon(
+                      _obscurePassword
+                          ? Icons.visibility_outlined
+                          : Icons.visibility_off_outlined,
+                    ),
+                    onPressed: () =>
+                        setState(() => _obscurePassword = !_obscurePassword),
+                  ),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(14),
                   ),
@@ -62,17 +81,30 @@ class PasswordFormSection extends StatelessWidget {
               ),
               const SizedBox(height: 10),
               TextFormField(
-                controller: confirmPasswordController,
-                obscureText: true,
+                controller: widget.confirmPasswordController,
+                obscureText: _obscureConfirmPassword,
                 decoration: InputDecoration(
                   labelText: 'Confirm new password',
                   prefixIcon: const Icon(Icons.lock_reset_outlined),
+                  suffixIcon: IconButton(
+                    tooltip: _obscureConfirmPassword
+                        ? 'Show password'
+                        : 'Hide password',
+                    icon: Icon(
+                      _obscureConfirmPassword
+                          ? Icons.visibility_outlined
+                          : Icons.visibility_off_outlined,
+                    ),
+                    onPressed: () => setState(
+                      () => _obscureConfirmPassword = !_obscureConfirmPassword,
+                    ),
+                  ),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(14),
                   ),
                 ),
                 validator: (value) {
-                  if ((value ?? '') != passwordController.text) {
+                  if ((value ?? '') != widget.passwordController.text) {
                     return 'Passwords do not match';
                   }
                   return null;
@@ -80,8 +112,8 @@ class PasswordFormSection extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               FilledButton(
-                onPressed: saving ? null : onSave,
-                child: saving
+                onPressed: widget.saving ? null : widget.onSave,
+                child: widget.saving
                     ? const SizedBox(
                         width: 16,
                         height: 16,
