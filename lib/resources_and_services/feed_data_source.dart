@@ -72,6 +72,16 @@ abstract class FeedDataSource {
   );
 
   Future<void> insertComment(Map<String, dynamic> values);
+
+  /// The current user's `feed_read_state` row (just `last_seen_at`), or
+  /// `null` if they've never viewed the feed.
+  Future<Map<String, dynamic>?> selectFeedReadState(String userId);
+
+  /// Records that the user has viewed the feed as of [lastSeenAt].
+  Future<void> upsertFeedReadState({
+    required String userId,
+    required DateTime lastSeenAt,
+  });
 }
 
 /// The real [FeedDataSource], backed by a Supabase project.
@@ -84,6 +94,7 @@ class SupabaseFeedDataSource implements FeedDataSource {
   static const _recipientsTable = 'shared_note_recipients';
   static const _likesTable = 'shared_note_likes';
   static const _commentsTable = 'shared_note_comments';
+  static const _readStateTable = 'feed_read_state';
   static const _noteColumns = 'id,note_id,author_id,title,content,published_at';
 
   @override
@@ -245,5 +256,28 @@ class SupabaseFeedDataSource implements FeedDataSource {
   @override
   Future<void> insertComment(Map<String, dynamic> values) async {
     await _client.from(_commentsTable).insert(values);
+  }
+
+  @override
+  Future<Map<String, dynamic>?> selectFeedReadState(String userId) {
+    return _client
+        .from(_readStateTable)
+        .select('last_seen_at')
+        .eq('user_id', userId)
+        .maybeSingle();
+  }
+
+  @override
+  Future<void> upsertFeedReadState({
+    required String userId,
+    required DateTime lastSeenAt,
+  }) async {
+    await _client.from(_readStateTable).upsert(
+      {
+        'user_id': userId,
+        'last_seen_at': lastSeenAt.toIso8601String(),
+      },
+      onConflict: 'user_id',
+    );
   }
 }

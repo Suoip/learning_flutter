@@ -27,6 +27,7 @@ class _NotesPageState extends State<NotesPage> {
   Set<String> _publishedNoteIds = {};
   Set<String> _pendingDeleteNoteIds = {};
   int _pendingRequestsCount = 0;
+  int _unseenFeedCount = 0;
   bool _loadingNotes = true;
   bool _loadingProfile = true;
   String? _notesError;
@@ -158,6 +159,13 @@ class _NotesPageState extends State<NotesPage> {
     if (!mounted) return;
     setState(() {
       _pendingRequestsCount = count;
+    });
+  }
+
+  void _updateUnseenFeedCount(int count) {
+    if (!mounted) return;
+    setState(() {
+      _unseenFeedCount = count;
     });
   }
 
@@ -456,6 +464,7 @@ class _NotesPageState extends State<NotesPage> {
       _publishedNoteIds = {};
       _pendingDeleteNoteIds = {};
       _pendingRequestsCount = 0;
+      _unseenFeedCount = 0;
       _searchController.clear();
       _loadingNotes = false;
       _loadingProfile = false;
@@ -602,7 +611,10 @@ class _NotesPageState extends State<NotesPage> {
           index: _selectedIndex,
           children: [
             _buildNotesTab(notes),
-            const FeedPage(),
+            FeedPage(
+              isActive: _selectedIndex == 1,
+              onUnseenCountChanged: _updateUnseenFeedCount,
+            ),
             FriendsPage(onPendingCountChanged: _updatePendingRequestsCount),
           ],
         ),
@@ -620,9 +632,17 @@ class _NotesPageState extends State<NotesPage> {
             selectedIcon: Icon(Icons.sticky_note_2_rounded),
             label: 'Notes',
           ),
-          const NavigationDestination(
-            icon: Icon(Icons.dynamic_feed_outlined),
-            selectedIcon: Icon(Icons.dynamic_feed_rounded),
+          NavigationDestination(
+            icon: Badge.count(
+              count: _unseenFeedCount,
+              isLabelVisible: _unseenFeedCount > 0,
+              child: const Icon(Icons.dynamic_feed_outlined),
+            ),
+            selectedIcon: Badge.count(
+              count: _unseenFeedCount,
+              isLabelVisible: _unseenFeedCount > 0,
+              child: const Icon(Icons.dynamic_feed_rounded),
+            ),
             label: 'Feed',
           ),
           NavigationDestination(
