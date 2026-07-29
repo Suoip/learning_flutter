@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../resources_and_services/notes_logic.dart';
-import 'feed_comments_sheet.dart';
+import 'feed_post_detail_page.dart';
 import 'feed_tab.dart';
 
 class FeedPage extends StatefulWidget {
@@ -63,14 +63,13 @@ class _FeedPageState extends State<FeedPage> {
     }
   }
 
-  Future<void> _openCommentsSheet(SharedNoteFeedItem item) async {
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      builder: (context) => FeedCommentsSheet(
-        logic: _logic,
-        item: item,
+  Future<void> _openPostDetail(SharedNoteFeedItem item) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => FeedPostDetailPage(
+          logic: _logic,
+          item: item,
+        ),
       ),
     );
     if (!mounted) return;
@@ -109,7 +108,7 @@ class _FeedPageState extends State<FeedPage> {
     return FeedTab(
       feed: _feed,
       onToggleLike: _toggleLike,
-      onOpenComments: _openCommentsSheet,
+      onOpenComments: _openPostDetail,
       onRefresh: _loadFeed,
     );
   }
