@@ -267,10 +267,21 @@ class _NotesAuthPageState extends State<NotesAuthPage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          Icon(
-                            Icons.sticky_note_2_outlined,
-                            size: 36,
-                            color: cs.primary,
+                          Center(
+                            child: Container(
+                              width: 64,
+                              height: 64,
+                              alignment: Alignment.center,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: cs.primaryContainer,
+                              ),
+                              child: Icon(
+                                Icons.sticky_note_2_outlined,
+                                size: 32,
+                                color: cs.onPrimaryContainer,
+                              ),
+                            ),
                           ),
                           const SizedBox(height: 10),
                           const Text(
