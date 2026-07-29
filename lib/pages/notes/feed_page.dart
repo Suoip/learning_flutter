@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../resources_and_services/notes_logic.dart';
 import 'feed_post_detail_page.dart';
 import 'feed_tab.dart';
+import 'notes_error_banner.dart';
 
 class FeedPage extends StatefulWidget {
   const FeedPage({
@@ -116,23 +117,13 @@ class _FeedPageState extends State<FeedPage> {
     }
 
     if (_error != null) {
-      final cs = Theme.of(context).colorScheme;
       return RefreshIndicator(
         onRefresh: _loadFeed,
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.all(20),
           children: [
-            Card(
-              color: cs.errorContainer,
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Text(
-                  'Failed to load feed:\n$_error',
-                  style: TextStyle(color: cs.onErrorContainer),
-                ),
-              ),
-            ),
+            NotesErrorBanner(message: 'Failed to load feed:\n$_error'),
           ],
         ),
       );

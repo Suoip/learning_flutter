@@ -7,6 +7,8 @@ import 'note_editor_page.dart';
 import 'note_list_tile.dart';
 import 'notes_activation_required_page.dart';
 import 'notes_auth_page.dart';
+import 'notes_empty_state.dart';
+import 'notes_error_banner.dart';
 import 'notes_profile_page.dart';
 import 'notes_toolbar.dart';
 import 'profile_avatar.dart';
@@ -479,57 +481,24 @@ class _NotesPageState extends State<NotesPage> {
     }
 
     if (_notesError != null) {
-      final cs = Theme.of(context).colorScheme;
       return ListView(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(20),
         children: [
-          Card(
-            color: cs.errorContainer,
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Text(
-                'Failed to load notes:\n$_notesError',
-                style: TextStyle(color: cs.onErrorContainer),
-              ),
-            ),
-          ),
+          NotesErrorBanner(message: 'Failed to load notes:\n$_notesError'),
         ],
       );
     }
 
     if (notes.isEmpty) {
-      final theme = Theme.of(context);
-      final cs = theme.colorScheme;
       return ListView(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(20, 60, 20, 120),
-        children: [
-          Card(
-            color: cs.surfaceContainerHighest,
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                children: [
-                  Icon(
-                    Icons.sticky_note_2_outlined,
-                    size: 40,
-                    color: cs.primary,
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'No notes yet',
-                    style: theme.textTheme.headlineSmall,
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Create your first note to get started.',
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.bodyLarge,
-                  ),
-                ],
-              ),
-            ),
+        children: const [
+          NotesEmptyState(
+            icon: Icons.sticky_note_2_outlined,
+            title: 'No notes yet',
+            subtitle: 'Create your first note to get started.',
           ),
         ],
       );

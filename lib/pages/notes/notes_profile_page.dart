@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../resources_and_services/notes_logic.dart';
+import 'notes_error_banner.dart';
 import 'password_form_section.dart';
 import 'profile_avatar_section.dart';
 import 'username_form_section.dart';
@@ -199,16 +200,7 @@ class _NotesProfilePageState extends State<NotesProfilePage> {
                 padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
                 children: [
                   if (_error != null) ...[
-                    Card(
-                      color: Colors.red.shade50,
-                      child: Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: Text(
-                          _error!,
-                          style: TextStyle(color: Colors.red.shade700),
-                        ),
-                      ),
-                    ),
+                    NotesErrorBanner(message: _error!),
                     const SizedBox(height: 14),
                   ],
                   ProfileAvatarSection(
