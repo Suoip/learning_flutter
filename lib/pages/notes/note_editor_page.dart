@@ -35,18 +35,32 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
   bool _saving = false;
   bool _deleting = false;
   bool _hasSavedOnce = false;
+  late String _lastSavedTitle;
+  late String _lastSavedContent;
   late bool _isFavorite;
   late bool _isPinned;
   late bool _isPublished;
+
+  bool get _isDirty =>
+      _titleController.text != _lastSavedTitle ||
+      _contentController.text != _lastSavedContent;
 
   @override
   void initState() {
     super.initState();
     _titleController = TextEditingController(text: widget.note.title);
     _contentController = TextEditingController(text: widget.note.content);
+    _lastSavedTitle = widget.note.title;
+    _lastSavedContent = widget.note.content;
+    _titleController.addListener(_handleTextChanged);
+    _contentController.addListener(_handleTextChanged);
     _isFavorite = widget.isFavorite;
     _isPinned = widget.isPinned;
     _isPublished = widget.isPublished;
+  }
+
+  void _handleTextChanged() {
+    if (mounted) setState(() {});
   }
 
   void _handleToggleFavorite() {
@@ -96,10 +110,16 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
       await _logic.updateNote(
           noteId: widget.note.id, title: title, content: content);
 
-      _hasSavedOnce = true;
       if (!mounted) return;
       setState(() {
         _saving = false;
+        _hasSavedOnce = true;
+        // Compared against the raw field text in _isDirty, not the trimmed
+        // `title` sent to the backend - otherwise trailing/leading
+        // whitespace alone would leave the editor stuck looking "dirty"
+        // forever after a save that didn't actually change anything else.
+        _lastSavedTitle = _titleController.text;
+        _lastSavedContent = _contentController.text;
       });
     } catch (error) {
       if (!mounted) return;
@@ -173,6 +193,31 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
         ),
       );
     }
+  }
+
+  Widget _buildStatusPill({
+    required String label,
+    required Color background,
+    required Color foreground,
+  }) {
+    return Align(
+      alignment: Alignment.centerRight,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          color: background,
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: foreground,
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -304,27 +349,17 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
                       ),
                     ),
                   ),
-                  if (_hasSavedOnce)
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: cs.secondaryContainer,
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                        child: Text(
-                          'Saved',
-                          style: TextStyle(
-                            color: cs.onSecondaryContainer,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
+                  if (_isDirty)
+                    _buildStatusPill(
+                      label: 'Unsaved changes',
+                      background: cs.primaryContainer,
+                      foreground: cs.onPrimaryContainer,
+                    )
+                  else if (_hasSavedOnce)
+                    _buildStatusPill(
+                      label: 'Saved',
+                      background: cs.secondaryContainer,
+                      foreground: cs.onSecondaryContainer,
                     ),
                 ],
               ),

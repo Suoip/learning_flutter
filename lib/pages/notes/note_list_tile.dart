@@ -101,6 +101,7 @@ class NoteListTile extends StatelessWidget {
                       ),
                     ),
                     PopupMenuButton<String>(
+                      tooltip: 'More options',
                       icon: Icon(
                         Icons.more_vert,
                         color: cs.onSurfaceVariant,

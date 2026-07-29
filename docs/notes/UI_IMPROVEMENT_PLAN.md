@@ -243,3 +243,86 @@ usual.
    favorite/pin stay inline, shipped in Phase 2 (PR #31).
 4. ~~Feed comments: inline-on-card vs. dedicated detail screen~~ — **Resolved: dedicated detail
    screen**, matching SmartAcademy's pattern, shipped in Phase 2 (PR #35).
+
+---
+
+## 7. Round 2 audit (post Phase 1–4)
+
+A fresh pass over every Notes screen now that Phases 1–4 are shipped, looking for what's still
+rough. Five candidates, roughly in order of impact:
+
+### 7.1 No desktop/wide-viewport adaptation
+
+The whole feature — bottom `NavigationBar`, single-column `ListView`s everywhere (Notes, Feed,
+Friends) — is a fixed phone-style layout regardless of window size (confirmed: zero use of
+`MediaQuery`/`LayoutBuilder`/`NavigationRail`/breakpoints anywhere in `lib/pages/notes/`). This
+runs on Flutter web and is likely often viewed at desktop widths, where a full-width bottom bar
+and a single narrow column of notes is a poor use of space. Candidate: swap to a `NavigationRail`
+(or keep the bottom bar but add a rail) above some width threshold, and let the notes/feed lists
+reflow into a responsive grid at wide widths — mirroring the breakpoint ladder SmartAcademy's hub
+already uses (`smart_academy_page.dart`, 1→2→3→4→5 columns at 480/840/1200/1600px).
+
+### 7.2 Three divergent empty-state treatments, two divergent error-banner conventions
+
+Notes' empty state (solid-fill card, `cs.primary`-colored icon, themed text), Feed's empty state
+(outlined card, default-colored icon, hardcoded `TextStyle`), and Friends' empty states (plain gray
+`Text`, no card/icon at all) are three different visual answers to the same "nothing here yet"
+concept, with no shared widget — each screen reimplemented it ad hoc. Error banners split the same
+way: Notes/Feed use theme-aware `cs.errorContainer`/`cs.onErrorContainer`; Profile/Friends use
+hardcoded `Colors.red.shade50`/`Colors.red.shade700`, which won't adapt correctly if this app ever
+gets a light theme and already looks slightly out of place against the rest of the dark palette.
+Candidate: extract a shared `NotesEmptyState` and `NotesErrorBanner` widget, adopt everywhere.
+
+### 7.3 Zero animation/transition anywhere
+
+Confirmed via grep: no `AnimatedList`, `AnimatedSwitcher`, `AnimatedContainer`, or any implicit
+animation anywhere in the feature. Concretely: deleting a note (post-undo-window) removes it from
+a plain `ListView` via instant rebuild, not an animated collapse; switching bottom-nav tabs is an
+instant `IndexedStack` swap; liking a post or toggling favorite/pin triggers a **full list
+refetch** (`_loadFeed()`/`_loadNotes()`) rather than a local optimistic icon flip, so every one of
+those actions has a visible full-list "flash" while it reloads instead of feeling instant.
+Candidate: `AnimatedList` (or a simpler `AnimatedSize`/fade) for note removal, optimistic local
+toggles for favorite/pin/like (update local state immediately, reconcile with the server response
+in the background, roll back only on error) instead of reload-the-world.
+
+### 7.4 Note editor rough edges
+
+- ✅ **Shipped**: the "Saved" pill was misleading — `_hasSavedOnce` was set on first successful
+  save and never reset, so it read "Saved" even mid-typing with real unsaved edits. Fixed by
+  tracking the last-saved title/content snapshot and deriving a real `_isDirty` getter (compared
+  against the raw, untrimmed field text — not the trimmed value sent to the backend, otherwise
+  trailing whitespace alone would leave the pill stuck on "Unsaved changes" forever). The pill now
+  shows "Unsaved changes" (`primaryContainer`) while dirty, "Saved" (`secondaryContainer`,
+  unchanged color) once clean and saved at least once, or nothing on a freshly-opened, untouched
+  note.
+- No autosave while typing (only on explicit Save or on navigating back) — a crash or browser
+  refresh between saves loses unsaved edits. **Not bundled with the pill fix** (see §8.3) — left
+  open.
+- No word/character count, no keyboard shortcuts (confirmed: no `Shortcuts`/`CallbackShortcuts`
+  anywhere in the feature — no Ctrl+S, no Escape-to-go-back). Still open.
+
+### 7.5 Two small, concrete fixes ✅ Shipped
+
+- `notes_profile_page.dart`'s AppBar back button was the one icon-only button in the whole feature
+  missing a `tooltip:` — added (`'Back'`).
+- `note_list_tile.dart`'s overflow `PopupMenuButton` (·) had no tooltip override, falling back to
+  Flutter's generic default ("Show menu") — added `tooltip: 'More options'`.
+
+### Non-goals carried forward
+
+Same as §5 — no color/typeface rework, no SmartAcademy changes. Additionally: no rich-text/
+markdown editor (7.4's word-count/shortcuts are small affordances, not an editor rewrite), no
+light theme (7.2's error-banner fix is about using existing theme tokens correctly, not adding a
+new theme).
+
+## 8. Round 2 decisions
+
+1. ~~Desktop layout (§7.1)~~ — **Deferred, not planned.** The app's main purpose is mobile; web is
+   only used for faster local testing/iteration. A responsive desktop pass isn't worth the scope
+   against that reality — revisit only if the project's primary usage target changes.
+2. **Order for the rest**: (a) the two tooltip fixes (§7.5) + the editor "Saved" pill bug (§7.4)
+   first — small, unambiguous fixes; (b) empty-state/error-banner unification (§7.2) next — same
+   shape as Phase 2's polish work; (c) animations (§7.3) last, scope (just the instant-snap fixes,
+   or also tab-switch transitions) to be decided when we get there.
+3. Autosave-while-typing (part of §7.4) is **not** bundled with the "Saved" pill fix — a bigger
+   behavioral change, left for a separate explicit decision later if wanted.
