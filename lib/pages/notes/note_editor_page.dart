@@ -1,11 +1,27 @@
 import 'package:flutter/material.dart';
 
 import '../../resources_and_services/notes_logic.dart';
+import '../../theme/app_colors.dart';
 
 class NoteEditorPage extends StatefulWidget {
-  const NoteEditorPage({super.key, required this.note});
+  const NoteEditorPage({
+    super.key,
+    required this.note,
+    required this.isPublished,
+    required this.isFavorite,
+    required this.isPinned,
+    required this.onToggleFavorite,
+    required this.onTogglePin,
+    required this.onTogglePublish,
+  });
 
   final NoteItem note;
+  final bool isPublished;
+  final bool isFavorite;
+  final bool isPinned;
+  final VoidCallback onToggleFavorite;
+  final VoidCallback onTogglePin;
+  final VoidCallback onTogglePublish;
 
   @override
   State<NoteEditorPage> createState() => _NoteEditorPageState();
@@ -19,12 +35,33 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
   bool _saving = false;
   bool _deleting = false;
   bool _hasSavedOnce = false;
+  late bool _isFavorite;
+  late bool _isPinned;
+  late bool _isPublished;
 
   @override
   void initState() {
     super.initState();
     _titleController = TextEditingController(text: widget.note.title);
     _contentController = TextEditingController(text: widget.note.content);
+    _isFavorite = widget.isFavorite;
+    _isPinned = widget.isPinned;
+    _isPublished = widget.isPublished;
+  }
+
+  void _handleToggleFavorite() {
+    setState(() => _isFavorite = !_isFavorite);
+    widget.onToggleFavorite();
+  }
+
+  void _handleTogglePin() {
+    setState(() => _isPinned = !_isPinned);
+    widget.onTogglePin();
+  }
+
+  void _handleTogglePublish() {
+    setState(() => _isPublished = !_isPublished);
+    widget.onTogglePublish();
   }
 
   @override
@@ -141,10 +178,12 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
     final cs = Theme.of(context).colorScheme;
 
     return PopScope(
-      canPop: true,
+      canPop: false,
       onPopInvokedWithResult: (didPop, result) async {
         if (didPop) return;
         await _onWillPop();
+        if (!mounted) return;
+        Navigator.of(this.context).pop();
       },
       child: Scaffold(
         backgroundColor: cs.surfaceContainerLowest,
@@ -192,6 +231,52 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 10),
               child: Column(
                 children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Last edited ${NotesLogic.formatUpdatedTime(widget.note.updatedAt)}',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: _isFavorite ? 'Unfavorite' : 'Favorite',
+                        onPressed: _handleToggleFavorite,
+                        icon: Icon(
+                          _isFavorite
+                              ? Icons.star_rounded
+                              : Icons.star_outline_rounded,
+                          color: _isFavorite
+                              ? AppColors.favoriteAccent
+                              : cs.onSurfaceVariant,
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: _isPinned ? 'Unpin' : 'Pin',
+                        onPressed: _handleTogglePin,
+                        icon: Icon(
+                          _isPinned
+                              ? Icons.push_pin_rounded
+                              : Icons.push_pin_outlined,
+                          color: _isPinned ? cs.primary : cs.onSurfaceVariant,
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: _isPublished
+                            ? 'Unpublish from friends'
+                            : 'Publish to friends',
+                        onPressed: _handleTogglePublish,
+                        icon: Icon(
+                          _isPublished
+                              ? Icons.public_rounded
+                              : Icons.public_outlined,
+                          color:
+                              _isPublished ? cs.tertiary : cs.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
                   TextField(
                     controller: _titleController,
                     style: const TextStyle(
