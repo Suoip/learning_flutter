@@ -308,11 +308,16 @@ Error banners were unified everywhere via a new shared `NotesErrorBanner`
   shows "Unsaved changes" (`primaryContainer`) while dirty, "Saved" (`secondaryContainer`,
   unchanged color) once clean and saved at least once, or nothing on a freshly-opened, untouched
   note.
-- No autosave while typing (only on explicit Save or on navigating back) — a crash or browser
-  refresh between saves loses unsaved edits. **Not bundled with the pill fix** (see §8.3) — left
-  open.
-- No word/character count, no keyboard shortcuts (confirmed: no `Shortcuts`/`CallbackShortcuts`
-  anywhere in the feature — no Ctrl+S, no Escape-to-go-back). Still open.
+- ✅ **Shipped**: autosave while typing (debounced 1.5s after the last keystroke, only when
+  `_isDirty` and the title is non-empty — a mid-edit blank title silently skips scheduling rather
+  than popping the "Title cannot be empty" snackbar in the background). `_save()` itself gained a
+  `!_isDirty` fast-path guard so a manual Save/back-navigation right before the debounce fires
+  doesn't trigger a redundant duplicate no-op save.
+- ✅ **Shipped**: a live word/character count, next to the Saved/Unsaved-changes pill at the
+  bottom of the editor (counts the content field only, not the title).
+- Keyboard shortcuts (Ctrl+S/Escape) — **deliberately not done**: mobile is the app's primary
+  target and has no physical keyboard, so this would only help the web-testing workflow. Revisit
+  only if that priority changes.
 
 ### 7.5 Two small, concrete fixes ✅ Shipped
 

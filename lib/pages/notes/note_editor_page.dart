@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../resources_and_services/notes_logic.dart';
@@ -37,6 +39,7 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
   bool _hasSavedOnce = false;
   late String _lastSavedTitle;
   late String _lastSavedContent;
+  Timer? _autosaveTimer;
   late bool _isFavorite;
   late bool _isPinned;
   late bool _isPublished;
@@ -60,7 +63,12 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
   }
 
   void _handleTextChanged() {
-    if (mounted) setState(() {});
+    if (!mounted) return;
+    setState(() {});
+    _autosaveTimer?.cancel();
+    if (_isDirty && _titleController.text.trim().isNotEmpty) {
+      _autosaveTimer = Timer(const Duration(milliseconds: 1500), _save);
+    }
   }
 
   void _handleToggleFavorite() {
@@ -82,13 +90,14 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
 
   @override
   void dispose() {
+    _autosaveTimer?.cancel();
     _titleController.dispose();
     _contentController.dispose();
     super.dispose();
   }
 
   Future<void> _save() async {
-    if (_saving) return;
+    if (_saving || !_isDirty) return;
 
     final title = _titleController.text.trim();
     final content = _contentController.text;
@@ -200,24 +209,29 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
     required Color background,
     required Color foreground,
   }) {
-    return Align(
-      alignment: Alignment.centerRight,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-        decoration: BoxDecoration(
-          color: background,
-          borderRadius: BorderRadius.circular(999),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: foreground,
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-          ),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: foreground,
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
         ),
       ),
     );
+  }
+
+  String get _wordCountLabel {
+    final text = _contentController.text.trim();
+    final words = text.isEmpty ? 0 : text.split(RegExp(r'\s+')).length;
+    final chars = _contentController.text.length;
+    return '$words word${words == 1 ? '' : 's'} · '
+        '$chars character${chars == 1 ? '' : 's'}';
   }
 
   @override
@@ -349,18 +363,29 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
                       ),
                     ),
                   ),
-                  if (_isDirty)
-                    _buildStatusPill(
-                      label: 'Unsaved changes',
-                      background: cs.primaryContainer,
-                      foreground: cs.onPrimaryContainer,
-                    )
-                  else if (_hasSavedOnce)
-                    _buildStatusPill(
-                      label: 'Saved',
-                      background: cs.secondaryContainer,
-                      foreground: cs.onSecondaryContainer,
-                    ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          _wordCountLabel,
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ),
+                      if (_isDirty)
+                        _buildStatusPill(
+                          label: 'Unsaved changes',
+                          background: cs.primaryContainer,
+                          foreground: cs.onPrimaryContainer,
+                        )
+                      else if (_hasSavedOnce)
+                        _buildStatusPill(
+                          label: 'Saved',
+                          background: cs.secondaryContainer,
+                          foreground: cs.onSecondaryContainer,
+                        ),
+                    ],
+                  ),
                 ],
               ),
             ),
