@@ -1,18 +1,18 @@
 import 'package:flutter/material.dart';
 
 import '../../resources_and_services/notes_logic.dart';
-import 'feed_comments_sheet.dart';
-import 'feed_tab.dart';
 import 'friends_tab.dart';
 
-class NotesSocialPage extends StatefulWidget {
-  const NotesSocialPage({super.key});
+class FriendsPage extends StatefulWidget {
+  const FriendsPage({super.key, required this.onPendingCountChanged});
+
+  final ValueChanged<int> onPendingCountChanged;
 
   @override
-  State<NotesSocialPage> createState() => _NotesSocialPageState();
+  State<FriendsPage> createState() => _FriendsPageState();
 }
 
-class _NotesSocialPageState extends State<NotesSocialPage> {
+class _FriendsPageState extends State<FriendsPage> {
   final NotesLogic _logic = NotesLogic();
   final TextEditingController _searchController = TextEditingController();
 
@@ -20,7 +20,6 @@ class _NotesSocialPageState extends State<NotesSocialPage> {
   List<FriendRequestItem> _incomingRequests = [];
   List<FriendRequestItem> _outgoingRequests = [];
   List<FriendItem> _friends = [];
-  List<SharedNoteFeedItem> _feed = [];
   bool _loading = true;
   bool _searching = false;
   String? _error;
@@ -50,21 +49,20 @@ class _NotesSocialPageState extends State<NotesSocialPage> {
       final incomingFuture = _logic.fetchIncomingFriendRequests();
       final outgoingFuture = _logic.fetchOutgoingFriendRequests();
       final friendsFuture = _logic.fetchFriends();
-      final feedFuture = _logic.fetchFriendsFeed();
       final results = await Future.wait([
         incomingFuture,
         outgoingFuture,
         friendsFuture,
-        feedFuture,
       ]);
       if (!mounted) return;
+      final incoming = results[0] as List<FriendRequestItem>;
       setState(() {
-        _incomingRequests = results[0] as List<FriendRequestItem>;
+        _incomingRequests = incoming;
         _outgoingRequests = results[1] as List<FriendRequestItem>;
         _friends = results[2] as List<FriendItem>;
-        _feed = results[3] as List<SharedNoteFeedItem>;
         _loading = false;
       });
+      widget.onPendingCountChanged(incoming.length);
     } catch (error) {
       if (!mounted) return;
       setState(() {
@@ -203,79 +201,26 @@ class _NotesSocialPageState extends State<NotesSocialPage> {
     }
   }
 
-  Future<void> _toggleLike(SharedNoteFeedItem item) async {
-    try {
-      await _logic.toggleFeedLike(item.id);
-      await _loadAll();
-    } catch (error) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content:
-                Text(_friendly(error, fallback: 'Could not update like.'))),
-      );
-    }
-  }
-
-  Future<void> _openCommentsSheet(SharedNoteFeedItem item) async {
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      builder: (context) => FeedCommentsSheet(
-        logic: _logic,
-        item: item,
-      ),
-    );
-    if (!mounted) return;
-    await _loadAll();
-  }
-
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return DefaultTabController(
-      length: 2,
-      child: Scaffold(
-        backgroundColor: cs.surfaceContainerLowest,
-        appBar: AppBar(
-          title: const Text('Friends & Feed'),
-          scrolledUnderElevation: 0,
-          bottom: const TabBar(
-            tabs: [
-              Tab(text: 'Friends', icon: Icon(Icons.group_outlined)),
-              Tab(text: 'Feed', icon: Icon(Icons.dynamic_feed_outlined)),
-            ],
-          ),
-        ),
-        body: _loading
-            ? const Center(child: CircularProgressIndicator())
-            : TabBarView(
-                children: [
-                  FriendsTab(
-                    searchController: _searchController,
-                    searching: _searching,
-                    error: _error,
-                    searchResults: _searchResults,
-                    incomingRequests: _incomingRequests,
-                    outgoingRequests: _outgoingRequests,
-                    friends: _friends,
-                    onSearch: _searchUsers,
-                    onSendRequest: _sendRequest,
-                    onRespondRequest: _respondRequest,
-                    onCancelRequest: _cancelRequest,
-                    onRemoveFriend: _removeFriend,
-                    onRefresh: _loadAll,
-                  ),
-                  FeedTab(
-                    feed: _feed,
-                    onToggleLike: _toggleLike,
-                    onOpenComments: _openCommentsSheet,
-                    onRefresh: _loadAll,
-                  ),
-                ],
-              ),
-      ),
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    return FriendsTab(
+      searchController: _searchController,
+      searching: _searching,
+      error: _error,
+      searchResults: _searchResults,
+      incomingRequests: _incomingRequests,
+      outgoingRequests: _outgoingRequests,
+      friends: _friends,
+      onSearch: _searchUsers,
+      onSendRequest: _sendRequest,
+      onRespondRequest: _respondRequest,
+      onCancelRequest: _cancelRequest,
+      onRemoveFriend: _removeFriend,
+      onRefresh: _loadAll,
     );
   }
 }

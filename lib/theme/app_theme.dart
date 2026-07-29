@@ -174,6 +174,37 @@ class AppTheme {
         showCheckmark: false,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       ),
+
+      // primaryContainer (not M3's typical secondaryContainer) for the
+      // selected indicator, since primary is already this app's singular
+      // "active/selected" signal elsewhere (filter chips, pinned-note icon)
+      // - secondary here is a deliberately muted, non-emphasis tone.
+      navigationBarTheme: NavigationBarThemeData(
+        backgroundColor: colorScheme.surfaceContainer,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        indicatorColor: colorScheme.primaryContainer,
+        indicatorShape: const StadiumBorder(),
+        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+        iconTheme: WidgetStateProperty.resolveWith((states) {
+          final selected = states.contains(WidgetState.selected);
+          return IconThemeData(
+            color: selected
+                ? colorScheme.onPrimaryContainer
+                : colorScheme.onSurfaceVariant,
+            size: 24,
+          );
+        }),
+        labelTextStyle: WidgetStateProperty.resolveWith((states) {
+          final selected = states.contains(WidgetState.selected);
+          return (textTheme.labelLarge ?? const TextStyle()).copyWith(
+            fontSize: 12,
+            fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+            color:
+                selected ? colorScheme.onSurface : colorScheme.onSurfaceVariant,
+          );
+        }),
+      ),
     );
   }
 
