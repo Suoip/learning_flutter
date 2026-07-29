@@ -20,14 +20,20 @@ class ProfileAvatar extends StatelessWidget {
 
     final hasAvatar = (avatarUrl ?? '').isNotEmpty;
 
-    return CircleAvatar(
-      radius: radius,
-      foregroundImage: hasAvatar ? NetworkImage(avatarUrl!) : null,
-      child: Text(
-        initial,
-        style: TextStyle(
-          fontWeight: FontWeight.w700,
-          fontSize: radius * 0.75,
+    return Semantics(
+      label: fallbackName.isEmpty
+          ? 'Profile picture'
+          : 'Profile picture of $fallbackName',
+      image: true,
+      child: CircleAvatar(
+        radius: radius,
+        foregroundImage: hasAvatar ? NetworkImage(avatarUrl!) : null,
+        child: Text(
+          initial,
+          style: TextStyle(
+            fontWeight: FontWeight.w700,
+            fontSize: radius * 0.75,
+          ),
         ),
       ),
     );

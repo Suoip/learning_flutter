@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
 import '../../resources_and_services/notes_logic.dart';
@@ -72,6 +73,7 @@ class _FeedPostDetailPageState extends State<FeedPostDetailPage> {
   }
 
   Future<void> _toggleLike() async {
+    HapticFeedback.lightImpact();
     try {
       await widget.logic.toggleFeedLike(widget.item.id);
       if (!mounted) return;

@@ -342,3 +342,30 @@ new theme).
 
 All of Round 2 is now shipped except §7.1 (desktop layout, deferred) and the still-open
 autosave-while-typing/word-count/keyboard-shortcut items noted in §7.4.
+
+---
+
+## 9. Round 3 — Password visibility, haptics, accessibility ✅ Shipped
+
+A fresh post-Round-2 audit found three more concrete, mobile-relevant gaps (mobile confirmed as
+the app's primary target, ahead of the still-deferred desktop layout):
+
+- **Password visibility toggle**: all 6 password fields across the app (login, register-confirm
+  in `notes_auth_page.dart`; change-password ×2 in `password_form_section.dart`; reset-password ×2
+  in `reset_password_page.dart`) were permanently `obscureText: true` with no way to reveal them —
+  no existing pattern for this anywhere in the app. Added a per-field obscure bool + `suffixIcon`
+  eye-toggle everywhere. `password_form_section.dart` needed converting from `StatelessWidget` to
+  `StatefulWidget` first, since the toggle is purely local UI state its parent has no reason to
+  know about — its constructor stayed byte-for-byte identical, so `notes_profile_page.dart` (its
+  caller) needed zero changes.
+- **Incidental fix while in `reset_password_page.dart`**: found it still had the old hardcoded
+  `Colors.red.shade50/700` error styling that Round 2's error-banner unification (§7.2) missed —
+  moved it onto the shared `NotesErrorBanner` widget while already touching this file.
+- **Haptic feedback**: was completely absent everywhere. Added `HapticFeedback.lightImpact()` to
+  every toggle-style action (favorite, pin, publish, both feed like-toggle implementations — the
+  list's and the detail page's separate one) and `HapticFeedback.mediumImpact()` to note deletion
+  (slightly more weight for the destructive-leaning action, even though it's undoable). Not
+  verifiable in the web dev preview (no vibration API there) — needs a real device to confirm.
+- **Accessibility**: `ProfileAvatar` gave screen readers nothing at all. Wrapped it in
+  `Semantics(label: 'Profile picture of $username', image: true)`. Scoped to just this one
+  confirmed gap, not a broader accessibility audit.

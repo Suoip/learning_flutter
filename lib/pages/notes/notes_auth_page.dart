@@ -21,6 +21,8 @@ class _NotesAuthPageState extends State<NotesAuthPage> {
 
   bool _isRegister = false;
   bool _loading = false;
+  bool _obscurePassword = true;
+  bool _obscureConfirmPassword = true;
   String? _errorText;
   String? _infoText;
   String? _pendingConfirmationEmail;
@@ -367,7 +369,7 @@ class _NotesAuthPageState extends State<NotesAuthPage> {
                           const SizedBox(height: 12),
                           TextFormField(
                             controller: _passwordController,
-                            obscureText: true,
+                            obscureText: _obscurePassword,
                             textInputAction: _isRegister
                                 ? TextInputAction.next
                                 : TextInputAction.done,
@@ -378,6 +380,19 @@ class _NotesAuthPageState extends State<NotesAuthPage> {
                               labelText: 'Password',
                               prefixIcon:
                                   const Icon(Icons.lock_outline_rounded),
+                              suffixIcon: IconButton(
+                                tooltip: _obscurePassword
+                                    ? 'Show password'
+                                    : 'Hide password',
+                                icon: Icon(
+                                  _obscurePassword
+                                      ? Icons.visibility_outlined
+                                      : Icons.visibility_off_outlined,
+                                ),
+                                onPressed: () => setState(
+                                  () => _obscurePassword = !_obscurePassword,
+                                ),
+                              ),
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(14),
                               ),
@@ -404,13 +419,27 @@ class _NotesAuthPageState extends State<NotesAuthPage> {
                             const SizedBox(height: 12),
                             TextFormField(
                               controller: _confirmPasswordController,
-                              obscureText: true,
+                              obscureText: _obscureConfirmPassword,
                               textInputAction: TextInputAction.done,
                               onFieldSubmitted: (_) => _submit(),
                               decoration: InputDecoration(
                                 labelText: 'Confirm password',
                                 prefixIcon:
                                     const Icon(Icons.lock_reset_rounded),
+                                suffixIcon: IconButton(
+                                  tooltip: _obscureConfirmPassword
+                                      ? 'Show password'
+                                      : 'Hide password',
+                                  icon: Icon(
+                                    _obscureConfirmPassword
+                                        ? Icons.visibility_outlined
+                                        : Icons.visibility_off_outlined,
+                                  ),
+                                  onPressed: () => setState(
+                                    () => _obscureConfirmPassword =
+                                        !_obscureConfirmPassword,
+                                  ),
+                                ),
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(14),
                                 ),

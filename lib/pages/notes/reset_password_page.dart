@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../resources_and_services/notes_logic.dart';
+import 'notes_error_banner.dart';
 
 /// Shown when the app detects a Supabase password-recovery session (the
 /// user followed a "reset password" link from their email). Lets them set
@@ -19,6 +20,8 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
   final _confirmPasswordController = TextEditingController();
 
   bool _saving = false;
+  bool _obscurePassword = true;
+  bool _obscureConfirmPassword = true;
   String? _errorText;
 
   @override
@@ -110,11 +113,24 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                         const SizedBox(height: 22),
                         TextFormField(
                           controller: _passwordController,
-                          obscureText: true,
+                          obscureText: _obscurePassword,
                           textInputAction: TextInputAction.next,
                           decoration: InputDecoration(
                             labelText: 'New password',
                             prefixIcon: const Icon(Icons.lock_outline_rounded),
+                            suffixIcon: IconButton(
+                              tooltip: _obscurePassword
+                                  ? 'Show password'
+                                  : 'Hide password',
+                              icon: Icon(
+                                _obscurePassword
+                                    ? Icons.visibility_outlined
+                                    : Icons.visibility_off_outlined,
+                              ),
+                              onPressed: () => setState(
+                                () => _obscurePassword = !_obscurePassword,
+                              ),
+                            ),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(14),
                             ),
@@ -130,12 +146,26 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                         const SizedBox(height: 12),
                         TextFormField(
                           controller: _confirmPasswordController,
-                          obscureText: true,
+                          obscureText: _obscureConfirmPassword,
                           textInputAction: TextInputAction.done,
                           onFieldSubmitted: (_) => _submit(),
                           decoration: InputDecoration(
                             labelText: 'Confirm new password',
                             prefixIcon: const Icon(Icons.lock_reset_outlined),
+                            suffixIcon: IconButton(
+                              tooltip: _obscureConfirmPassword
+                                  ? 'Show password'
+                                  : 'Hide password',
+                              icon: Icon(
+                                _obscureConfirmPassword
+                                    ? Icons.visibility_outlined
+                                    : Icons.visibility_off_outlined,
+                              ),
+                              onPressed: () => setState(
+                                () => _obscureConfirmPassword =
+                                    !_obscureConfirmPassword,
+                              ),
+                            ),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(14),
                             ),
@@ -149,18 +179,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                         ),
                         if (_errorText != null) ...[
                           const SizedBox(height: 12),
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: Colors.red.shade50,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: Colors.red.shade100),
-                            ),
-                            child: Text(
-                              _errorText!,
-                              style: TextStyle(color: Colors.red.shade700),
-                            ),
-                          ),
+                          NotesErrorBanner(message: _errorText!),
                         ],
                         const SizedBox(height: 16),
                         FilledButton(
