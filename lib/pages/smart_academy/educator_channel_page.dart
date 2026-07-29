@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../resources_and_services/educator_logic.dart';
 import 'educator_profile_avatar.dart';
-import 'expandable_text.dart';
 import 'smart_academy_detail_page.dart';
 import 'smart_academy_entry.dart';
 
@@ -133,6 +132,7 @@ class _EducatorChannelPageState extends State<EducatorChannelPage> {
             kind: SmartAcademyEntryKind.video,
             title: item.video.title,
             authorName: profile?.username ?? '',
+            authorAvatarUrl: profile?.avatarUrl,
             educatorId: widget.educatorId,
             description: item.video.description,
             durationLabel: item.video.durationLabel,
@@ -152,6 +152,7 @@ class _EducatorChannelPageState extends State<EducatorChannelPage> {
             kind: SmartAcademyEntryKind.forum,
             title: item.post.title,
             authorName: profile?.username ?? '',
+            authorAvatarUrl: profile?.avatarUrl,
             educatorId: widget.educatorId,
             description: item.post.description,
           ),
@@ -240,7 +241,12 @@ class _EducatorChannelPageState extends State<EducatorChannelPage> {
       content = Column(
         children: [
           for (final video in _videos) ...[
-            _ChannelVideoTile(item: video, onTap: () => _openVideo(video)),
+            _ChannelVideoTile(
+              item: video,
+              authorName: _profile?.username ?? '',
+              authorAvatarUrl: _profile?.avatarUrl,
+              onTap: () => _openVideo(video),
+            ),
             if (video != _videos.last) const SizedBox(height: 12),
           ],
         ],
@@ -291,6 +297,8 @@ class _EducatorChannelPageState extends State<EducatorChannelPage> {
           for (final post in _posts) ...[
             _ChannelForumPostTile(
               item: post,
+              authorName: _profile?.username ?? '',
+              authorAvatarUrl: _profile?.avatarUrl,
               onTap: () => _openForumPost(post),
             ),
             if (post != _posts.last) const SizedBox(height: 12),
@@ -362,10 +370,42 @@ Widget _buildPreviewEngagementRow(
   );
 }
 
+Widget _buildAuthorRow(
+  ThemeData theme, {
+  required String authorName,
+  required String? authorAvatarUrl,
+}) {
+  return Row(
+    children: [
+      EducatorProfileAvatar(
+        username: authorName,
+        avatarUrl: authorAvatarUrl,
+        radius: 9,
+      ),
+      const SizedBox(width: 6),
+      Expanded(
+        child: Text(
+          'by $authorName',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: theme.textTheme.bodySmall,
+        ),
+      ),
+    ],
+  );
+}
+
 class _ChannelVideoTile extends StatelessWidget {
-  const _ChannelVideoTile({required this.item, required this.onTap});
+  const _ChannelVideoTile({
+    required this.item,
+    required this.authorName,
+    required this.authorAvatarUrl,
+    required this.onTap,
+  });
 
   final EducatorVideoWithEngagement item;
+  final String authorName;
+  final String? authorAvatarUrl;
   final VoidCallback onTap;
 
   @override
@@ -401,6 +441,12 @@ class _ChannelVideoTile extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        _buildAuthorRow(
+                          theme,
+                          authorName: authorName,
+                          authorAvatarUrl: authorAvatarUrl,
+                        ),
+                        const SizedBox(height: 6),
                         Row(
                           children: [
                             Expanded(
@@ -413,11 +459,6 @@ class _ChannelVideoTile extends StatelessWidget {
                                   style: theme.textTheme.bodySmall),
                             ],
                           ],
-                        ),
-                        const SizedBox(height: 6),
-                        ExpandableText(
-                          text: video.description,
-                          style: theme.textTheme.bodyMedium,
                         ),
                       ],
                     ),
@@ -440,9 +481,16 @@ class _ChannelVideoTile extends StatelessWidget {
 }
 
 class _ChannelForumPostTile extends StatelessWidget {
-  const _ChannelForumPostTile({required this.item, required this.onTap});
+  const _ChannelForumPostTile({
+    required this.item,
+    required this.authorName,
+    required this.authorAvatarUrl,
+    required this.onTap,
+  });
 
   final ForumPostWithEngagement item;
+  final String authorName;
+  final String? authorAvatarUrl;
   final VoidCallback onTap;
 
   @override
@@ -477,12 +525,13 @@ class _ChannelForumPostTile extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(post.title, style: theme.textTheme.titleMedium),
-                        const SizedBox(height: 6),
-                        ExpandableText(
-                          text: post.description,
-                          style: theme.textTheme.bodyMedium,
+                        _buildAuthorRow(
+                          theme,
+                          authorName: authorName,
+                          authorAvatarUrl: authorAvatarUrl,
                         ),
+                        const SizedBox(height: 6),
+                        Text(post.title, style: theme.textTheme.titleMedium),
                       ],
                     ),
                   ),

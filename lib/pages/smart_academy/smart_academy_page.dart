@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../resources_and_services/educator_logic.dart';
 import 'educator_dashboard_page.dart';
+import 'educator_profile_avatar.dart';
 import 'educator_search_bar.dart';
 import 'smart_academy_activation_required_page.dart';
 import 'smart_academy_auth_page.dart';
@@ -75,6 +76,7 @@ class _SmartAcademyPageState extends State<SmartAcademyPage> {
             kind: SmartAcademyEntryKind.video,
             title: item.video.title,
             authorName: item.authorUsername,
+            authorAvatarUrl: item.authorAvatarUrl,
             educatorId: item.educatorId,
             description: item.video.description,
             durationLabel: item.video.durationLabel,
@@ -110,6 +112,7 @@ class _SmartAcademyPageState extends State<SmartAcademyPage> {
             kind: SmartAcademyEntryKind.forum,
             title: item.post.title,
             authorName: item.authorUsername,
+            authorAvatarUrl: item.authorAvatarUrl,
             educatorId: item.educatorId,
             description: item.post.description,
           );
@@ -460,17 +463,38 @@ class _VideoCard extends StatelessWidget {
             ),
             Padding(
               padding: const EdgeInsets.all(12),
-              child: Column(
+              child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    entry.title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.titleMedium,
+                  SizedBox(
+                    width: 56,
+                    child: Column(
+                      children: [
+                        EducatorProfileAvatar(
+                          username: entry.authorName,
+                          avatarUrl: entry.authorAvatarUrl,
+                          radius: 16,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          entry.authorName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.center,
+                          style: theme.textTheme.bodySmall,
+                        ),
+                      ],
+                    ),
                   ),
-                  const SizedBox(height: 4),
-                  Text(entry.authorName, style: theme.textTheme.bodySmall),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      entry.title,
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleMedium,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -515,23 +539,30 @@ class _ForumEntryCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    Row(
+                      children: [
+                        EducatorProfileAvatar(
+                          username: entry.authorName,
+                          avatarUrl: entry.authorAvatarUrl,
+                          radius: 9,
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            'by ${entry.authorName}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodySmall,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
                     Text(
                       entry.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      entry.description,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodyMedium,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'by ${entry.authorName}',
-                      style: theme.textTheme.bodySmall,
+                      style: theme.textTheme.titleMedium,
                     ),
                   ],
                 ),
