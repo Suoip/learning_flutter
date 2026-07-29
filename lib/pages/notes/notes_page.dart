@@ -204,7 +204,15 @@ class _NotesPageState extends State<NotesPage> {
       if (!mounted) return;
       await Navigator.of(context).push(
         MaterialPageRoute(
-          builder: (_) => NoteEditorPage(note: note),
+          builder: (_) => NoteEditorPage(
+            note: note,
+            isPublished: false,
+            isFavorite: false,
+            isPinned: false,
+            onToggleFavorite: () => _toggleFavorite(note),
+            onTogglePin: () => _togglePin(note),
+            onTogglePublish: () => _togglePublish(note),
+          ),
         ),
       );
       await _loadNotes();
@@ -356,7 +364,15 @@ class _NotesPageState extends State<NotesPage> {
   Future<void> _openNote(NoteItem note) async {
     await Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => NoteEditorPage(note: note),
+        builder: (_) => NoteEditorPage(
+          note: note,
+          isPublished: _publishedNoteIds.contains(note.id),
+          isFavorite: note.isFavorite,
+          isPinned: note.isPinned,
+          onToggleFavorite: () => _toggleFavorite(note),
+          onTogglePin: () => _togglePin(note),
+          onTogglePublish: () => _togglePublish(note),
+        ),
       ),
     );
     await _loadNotes();
