@@ -100,17 +100,33 @@ class NoteListTile extends StatelessWidget {
                         color: note.isPinned ? cs.primary : cs.onSurfaceVariant,
                       ),
                     ),
-                    IconButton(
-                      tooltip: isPublished
-                          ? 'Unpublish from friends'
-                          : 'Publish to friends',
-                      onPressed: onTogglePublish,
+                    PopupMenuButton<String>(
                       icon: Icon(
-                        isPublished
-                            ? Icons.public_rounded
-                            : Icons.public_outlined,
-                        color: isPublished ? cs.tertiary : cs.onSurfaceVariant,
+                        Icons.more_vert,
+                        color: cs.onSurfaceVariant,
                       ),
+                      onSelected: (_) => onTogglePublish(),
+                      itemBuilder: (context) => [
+                        PopupMenuItem(
+                          value: 'toggle_publish',
+                          child: ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            leading: Icon(
+                              isPublished
+                                  ? Icons.public_rounded
+                                  : Icons.public_outlined,
+                              color: isPublished
+                                  ? cs.tertiary
+                                  : cs.onSurfaceVariant,
+                            ),
+                            title: Text(
+                              isPublished
+                                  ? 'Unpublish from friends'
+                                  : 'Publish to friends',
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
