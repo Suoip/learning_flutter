@@ -187,6 +187,7 @@ class _NotesProfilePageState extends State<NotesProfilePage> {
         title: const Text('Profile'),
         scrolledUnderElevation: 0,
         leading: IconButton(
+          tooltip: 'Back',
           onPressed: () => Navigator.of(context).pop(_profile),
           icon: const Icon(Icons.arrow_back_rounded),
         ),
