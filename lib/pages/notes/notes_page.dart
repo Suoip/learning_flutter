@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 
 import '../../resources_and_services/notes_logic.dart';
+import 'feed_page.dart';
+import 'friends_page.dart';
 import 'note_editor_page.dart';
 import 'note_list_tile.dart';
 import 'notes_activation_required_page.dart';
 import 'notes_auth_page.dart';
 import 'notes_profile_page.dart';
-import 'notes_social_page.dart';
 import 'notes_toolbar.dart';
 import 'profile_avatar.dart';
 
@@ -30,6 +31,9 @@ class _NotesPageState extends State<NotesPage> {
   String? _notesError;
   String _searchQuery = '';
   NoteQuickFilter _activeFilter = NoteQuickFilter.all;
+  int _selectedIndex = 0;
+
+  static const _tabTitles = ['Notes', 'Feed', 'Friends'];
 
   @override
   void initState() {
@@ -58,7 +62,6 @@ class _NotesPageState extends State<NotesPage> {
     await Future.wait([
       _loadProfile(),
       _loadNotes(),
-      _loadPendingRequestsBadge(),
     ]);
   }
 
@@ -140,8 +143,6 @@ class _NotesPageState extends State<NotesPage> {
     await Future.wait([
       _loadNotes(),
       _loadProfile(),
-      _loadPendingRequestsBadge(),
-      _loadPublishedNotes(),
     ]);
   }
 
@@ -152,14 +153,11 @@ class _NotesPageState extends State<NotesPage> {
     return NotesLogic.userMessageForError(error, fallback: fallback);
   }
 
-  Future<void> _loadPendingRequestsBadge() async {
-    try {
-      final count = await _logic.fetchIncomingRequestCount();
-      if (!mounted) return;
-      setState(() {
-        _pendingRequestsCount = count;
-      });
-    } catch (_) {}
+  void _updatePendingRequestsCount(int count) {
+    if (!mounted) return;
+    setState(() {
+      _pendingRequestsCount = count;
+    });
   }
 
   Future<void> _loadPublishedNotes() async {
@@ -170,14 +168,6 @@ class _NotesPageState extends State<NotesPage> {
         _publishedNoteIds = ids;
       });
     } catch (_) {}
-  }
-
-  Future<void> _openSocialPage() async {
-    await Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const NotesSocialPage()),
-    );
-    await _loadPendingRequestsBadge();
-    await _loadPublishedNotes();
   }
 
   Future<void> _openProfile() async {
@@ -384,6 +374,7 @@ class _NotesPageState extends State<NotesPage> {
       _loadingNotes = false;
       _loadingProfile = false;
       _notesError = null;
+      _selectedIndex = 0;
     });
   }
 
@@ -492,20 +483,8 @@ class _NotesPageState extends State<NotesPage> {
     return Scaffold(
       backgroundColor: cs.surfaceContainerLowest,
       appBar: AppBar(
-        title: const Text('Notes'),
+        title: Text(_tabTitles[_selectedIndex]),
         actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 2),
-            child: IconButton(
-              tooltip: 'Friends & feed',
-              onPressed: _openSocialPage,
-              icon: Badge.count(
-                count: _pendingRequestsCount,
-                isLabelVisible: _pendingRequestsCount > 0,
-                child: const Icon(Icons.groups_outlined),
-              ),
-            ),
-          ),
           Padding(
             padding: const EdgeInsets.only(right: 4),
             child: IconButton(
@@ -533,27 +512,71 @@ class _NotesPageState extends State<NotesPage> {
         ],
       ),
       body: SafeArea(
-        child: Column(
+        child: IndexedStack(
+          index: _selectedIndex,
           children: [
-            NotesToolbar(
-              searchController: _searchController,
-              activeFilter: _activeFilter,
-              onFilterChanged: (filter) {
-                setState(() {
-                  _activeFilter = filter;
-                });
-              },
-              onCreateNote: _createAndOpenNote,
-            ),
-            Expanded(
-              child: RefreshIndicator(
-                onRefresh: _loadNotes,
-                child: _buildNotesBody(notes),
-              ),
-            ),
+            _buildNotesTab(notes),
+            const FeedPage(),
+            FriendsPage(onPendingCountChanged: _updatePendingRequestsCount),
           ],
         ),
       ),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _selectedIndex,
+        onDestinationSelected: (index) {
+          setState(() {
+            _selectedIndex = index;
+          });
+        },
+        destinations: [
+          const NavigationDestination(
+            icon: Icon(Icons.sticky_note_2_outlined),
+            selectedIcon: Icon(Icons.sticky_note_2_rounded),
+            label: 'Notes',
+          ),
+          const NavigationDestination(
+            icon: Icon(Icons.dynamic_feed_outlined),
+            selectedIcon: Icon(Icons.dynamic_feed_rounded),
+            label: 'Feed',
+          ),
+          NavigationDestination(
+            icon: Badge.count(
+              count: _pendingRequestsCount,
+              isLabelVisible: _pendingRequestsCount > 0,
+              child: const Icon(Icons.group_outlined),
+            ),
+            selectedIcon: Badge.count(
+              count: _pendingRequestsCount,
+              isLabelVisible: _pendingRequestsCount > 0,
+              child: const Icon(Icons.group_rounded),
+            ),
+            label: 'Friends',
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNotesTab(List<NoteItem> notes) {
+    return Column(
+      children: [
+        NotesToolbar(
+          searchController: _searchController,
+          activeFilter: _activeFilter,
+          onFilterChanged: (filter) {
+            setState(() {
+              _activeFilter = filter;
+            });
+          },
+          onCreateNote: _createAndOpenNote,
+        ),
+        Expanded(
+          child: RefreshIndicator(
+            onRefresh: _loadNotes,
+            child: _buildNotesBody(notes),
+          ),
+        ),
+      ],
     );
   }
 }
