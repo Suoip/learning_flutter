@@ -5,7 +5,18 @@ import 'feed_post_detail_page.dart';
 import 'feed_tab.dart';
 
 class FeedPage extends StatefulWidget {
-  const FeedPage({super.key});
+  const FeedPage({
+    super.key,
+    required this.isActive,
+    required this.onUnseenCountChanged,
+  });
+
+  /// Whether the Feed tab is currently the selected bottom-nav destination.
+  /// The feed's own [State] stays alive across tab switches (it lives inside
+  /// an `IndexedStack`), so a false-to-true transition is detected via
+  /// [didUpdateWidget], not [initState].
+  final bool isActive;
+  final ValueChanged<int> onUnseenCountChanged;
 
   @override
   State<FeedPage> createState() => _FeedPageState();
@@ -24,6 +35,20 @@ class _FeedPageState extends State<FeedPage> {
     _loadFeed();
   }
 
+  @override
+  void didUpdateWidget(covariant FeedPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!oldWidget.isActive && widget.isActive) {
+      _markSeen();
+    }
+  }
+
+  Future<void> _markSeen() async {
+    await _logic.markFeedSeenNow();
+    if (!mounted) return;
+    widget.onUnseenCountChanged(0);
+  }
+
   String _friendly(Object error, {String fallback = 'Something went wrong.'}) {
     return NotesLogic.userMessageForError(error, fallback: fallback);
   }
@@ -34,12 +59,20 @@ class _FeedPageState extends State<FeedPage> {
       _error = null;
     });
     try {
-      final feed = await _logic.fetchFriendsFeed();
+      final results = await Future.wait([
+        _logic.fetchFriendsFeed(),
+        _logic.fetchFeedLastSeenAt(),
+      ]);
       if (!mounted) return;
+      final feed = results[0] as List<SharedNoteFeedItem>;
+      final lastSeenAt = results[1] as DateTime?;
       setState(() {
         _feed = feed;
         _loading = false;
       });
+      widget.onUnseenCountChanged(
+        NotesLogic.countUnseenFeedItems(feed: feed, lastSeenAt: lastSeenAt),
+      );
     } catch (error) {
       if (!mounted) return;
       setState(() {

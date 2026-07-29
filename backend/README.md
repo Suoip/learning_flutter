@@ -19,6 +19,7 @@ Run this SQL in your Supabase project SQL editor:
 `backend/sql/005_educators.sql` (adds `public.educators` and rewrites `handle_new_auth_user()` to branch on a new `app` signup-metadata tag; safe to run against existing data - existing Notes signups have no `app` tag and fall through to the unchanged Notes/profiles branch)
 `backend/sql/006_educator_videos.sql` (adds `public.educator_videos`; safe to run against existing data, purely additive)
 `backend/sql/007_educator_forum_posts.sql` (adds `public.educator_forum_posts`; safe to run against existing data, purely additive)
+`backend/sql/012_feed_read_state.sql` (adds `public.feed_read_state`, tracking when each user last viewed their Notes friends feed for the unseen-post badge; safe to run against existing data, purely additive)
 
 ## Required Supabase Auth settings
 

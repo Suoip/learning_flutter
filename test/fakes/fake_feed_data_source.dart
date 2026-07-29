@@ -15,6 +15,7 @@ class FakeFeedDataSource implements FeedDataSource {
   final List<Map<String, dynamic>> recipients = [];
   final List<Map<String, dynamic>> likes = [];
   final List<Map<String, dynamic>> comments = [];
+  final List<Map<String, dynamic>> feedReadState = [];
   int _nextSharedNoteId = 1;
   int _nextCommentId = 1;
 
@@ -194,5 +195,29 @@ class FakeFeedDataSource implements FeedDataSource {
       'created_at': DateTime.now().toUtc().toIso8601String(),
       ...values,
     });
+  }
+
+  @override
+  Future<Map<String, dynamic>?> selectFeedReadState(String userId) async {
+    final index = feedReadState.indexWhere((row) => row['user_id'] == userId);
+    if (index == -1) return null;
+    return Map<String, dynamic>.from(feedReadState[index]);
+  }
+
+  @override
+  Future<void> upsertFeedReadState({
+    required String userId,
+    required DateTime lastSeenAt,
+  }) async {
+    final row = {
+      'user_id': userId,
+      'last_seen_at': lastSeenAt.toIso8601String(),
+    };
+    final index = feedReadState.indexWhere((row) => row['user_id'] == userId);
+    if (index != -1) {
+      feedReadState[index] = row;
+    } else {
+      feedReadState.add(row);
+    }
   }
 }

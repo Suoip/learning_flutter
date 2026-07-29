@@ -1131,4 +1131,35 @@ class NotesLogic {
       'content': trimmed,
     });
   }
+
+  Future<DateTime?> fetchFeedLastSeenAt() async {
+    final userId = _feedDataSource.currentUserId;
+    if (userId == null) return null;
+    final row = await _feedDataSource.selectFeedReadState(userId);
+    if (row == null || row['last_seen_at'] == null) return null;
+    return parseTimestamp(row['last_seen_at']);
+  }
+
+  Future<void> markFeedSeenNow() async {
+    final userId = _feedDataSource.currentUserId;
+    if (userId == null) return;
+    await _feedDataSource.upsertFeedReadState(
+      userId: userId,
+      lastSeenAt: DateTime.now().toUtc(),
+    );
+  }
+
+  /// How many of [feed]'s items count as "unseen" for the Feed tab's badge:
+  /// friends' posts (never your own) published after [lastSeenAt]. A `null`
+  /// [lastSeenAt] means the feed has never been viewed, so everything counts.
+  static int countUnseenFeedItems({
+    required List<SharedNoteFeedItem> feed,
+    required DateTime? lastSeenAt,
+  }) {
+    return feed.where((item) {
+      if (item.isOwnPost) return false;
+      if (lastSeenAt == null) return true;
+      return item.publishedAt.isAfter(lastSeenAt);
+    }).length;
+  }
 }

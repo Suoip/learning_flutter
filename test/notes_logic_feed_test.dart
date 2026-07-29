@@ -353,5 +353,113 @@ void main() {
         expect(comments.last.authorUsername, 'bob');
       });
     });
+
+    group('fetchFeedLastSeenAt', () {
+      test('returns null when signed out', () async {
+        feedDataSource.currentUserId = null;
+        expect(await logic.fetchFeedLastSeenAt(), isNull);
+      });
+
+      test('returns null when no read-state row exists yet', () async {
+        expect(await logic.fetchFeedLastSeenAt(), isNull);
+      });
+
+      test('returns the parsed timestamp when a row exists', () async {
+        feedDataSource.feedReadState.add({
+          'user_id': 'user-1',
+          'last_seen_at': '2024-01-05T00:00:00.000Z',
+        });
+
+        final result = await logic.fetchFeedLastSeenAt();
+
+        expect(result, DateTime.utc(2024, 1, 5));
+      });
+    });
+
+    group('markFeedSeenNow', () {
+      test('no-ops when signed out', () async {
+        feedDataSource.currentUserId = null;
+        await logic.markFeedSeenNow();
+        expect(feedDataSource.feedReadState, isEmpty);
+      });
+
+      test('upserts a read-state row for the current user', () async {
+        await logic.markFeedSeenNow();
+
+        expect(feedDataSource.feedReadState.single['user_id'], 'user-1');
+        expect(feedDataSource.feedReadState.single['last_seen_at'], isNotNull);
+      });
+
+      test('updates the existing row in place rather than duplicating it',
+          () async {
+        feedDataSource.feedReadState.add({
+          'user_id': 'user-1',
+          'last_seen_at': '2024-01-01T00:00:00.000Z',
+        });
+
+        await logic.markFeedSeenNow();
+
+        expect(feedDataSource.feedReadState, hasLength(1));
+        expect(
+          feedDataSource.feedReadState.single['last_seen_at'],
+          isNot('2024-01-01T00:00:00.000Z'),
+        );
+      });
+    });
+  });
+
+  group('NotesLogic.countUnseenFeedItems', () {
+    SharedNoteFeedItem buildFeedItem({
+      String id = 'shared-1',
+      DateTime? publishedAt,
+      bool isOwnPost = false,
+    }) {
+      return SharedNoteFeedItem(
+        id: id,
+        noteId: 'note-1',
+        authorId: 'user-2',
+        authorUsername: 'bob',
+        authorAvatarUrl: null,
+        title: 'Title',
+        content: 'Content',
+        publishedAt: publishedAt ?? DateTime(2024, 1, 10),
+        likeCount: 0,
+        commentCount: 0,
+        isLikedByCurrentUser: false,
+        isOwnPost: isOwnPost,
+      );
+    }
+
+    test('treats a null lastSeenAt as "everything unseen"', () {
+      final feed = [buildFeedItem(), buildFeedItem(id: 'shared-2')];
+      final count = NotesLogic.countUnseenFeedItems(
+        feed: feed,
+        lastSeenAt: null,
+      );
+      expect(count, 2);
+    });
+
+    test('excludes items published before or at lastSeenAt', () {
+      final feed = [
+        buildFeedItem(id: 'old', publishedAt: DateTime(2024, 1, 1)),
+        buildFeedItem(id: 'new', publishedAt: DateTime(2024, 1, 20)),
+      ];
+      final count = NotesLogic.countUnseenFeedItems(
+        feed: feed,
+        lastSeenAt: DateTime(2024, 1, 10),
+      );
+      expect(count, 1);
+    });
+
+    test('never counts your own posts, even if unseen', () {
+      final feed = [
+        buildFeedItem(publishedAt: DateTime(2024, 1, 20), isOwnPost: true),
+      ];
+      final count = NotesLogic.countUnseenFeedItems(
+        feed: feed,
+        lastSeenAt: DateTime(2024, 1, 10),
+      );
+      expect(count, 0);
+    });
   });
 }
