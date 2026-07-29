@@ -25,6 +25,7 @@ class _NotesPageState extends State<NotesPage> {
   List<NoteItem> _notes = [];
   UserProfile? _profile;
   Set<String> _publishedNoteIds = {};
+  Set<String> _pendingDeleteNoteIds = {};
   int _pendingRequestsCount = 0;
   bool _loadingNotes = true;
   bool _loadingProfile = true;
@@ -184,8 +185,10 @@ class _NotesPageState extends State<NotesPage> {
   }
 
   List<NoteItem> get _filteredNotes {
+    final visible =
+        _notes.where((n) => !_pendingDeleteNoteIds.contains(n.id)).toList();
     return NotesLogic.filterNotes(
-      notes: _notes,
+      notes: visible,
       searchQuery: _searchQuery,
       filter: _activeFilter,
     );
@@ -342,39 +345,48 @@ class _NotesPageState extends State<NotesPage> {
     return confirmed ?? false;
   }
 
-  Future<void> _deleteNote(NoteItem note) async {
-    final shouldDelete = await showDialog<bool>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Delete Note'),
-          content:
-              Text('Delete "${note.title}"? This action cannot be undone.'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('Delete'),
-            ),
-          ],
-        );
-      },
+  Future<void> _deleteNoteWithUndo(NoteItem note) async {
+    setState(() => _pendingDeleteNoteIds.add(note.id));
+
+    // Finalizes any still-showing undo-snackbar for a different note right
+    // away (its real delete fires immediately) instead of queuing behind it -
+    // ScaffoldMessenger queues snackbars rather than replacing them, so
+    // back-to-back deletes without this would leave an earlier note's Undo
+    // action visible/actionable while a newer delete is also pending.
+    ScaffoldMessenger.of(context).removeCurrentSnackBar();
+
+    bool undone = false;
+    final controller = ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text('Note deleted'),
+        duration: const Duration(seconds: 4),
+        action: SnackBarAction(
+          label: 'Undo',
+          onPressed: () => undone = true,
+        ),
+      ),
     );
 
-    if (shouldDelete != true) return;
+    await controller.closed;
+
+    if (undone) {
+      if (mounted) {
+        setState(() => _pendingDeleteNoteIds.remove(note.id));
+      }
+      return;
+    }
 
     try {
       await _logic.deleteNote(note.id);
-      await _loadNotes();
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Note deleted')),
-      );
+      if (mounted) {
+        setState(() {
+          _notes.removeWhere((n) => n.id == note.id);
+          _pendingDeleteNoteIds.remove(note.id);
+        });
+      }
     } catch (error) {
       if (!mounted) return;
+      setState(() => _pendingDeleteNoteIds.remove(note.id));
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
             content:
@@ -442,6 +454,7 @@ class _NotesPageState extends State<NotesPage> {
       _notes = [];
       _profile = null;
       _publishedNoteIds = {};
+      _pendingDeleteNoteIds = {};
       _pendingRequestsCount = 0;
       _searchController.clear();
       _loadingNotes = false;
@@ -527,7 +540,7 @@ class _NotesPageState extends State<NotesPage> {
           onTogglePin: () => _togglePin(note),
           onTogglePublish: () => _togglePublish(note),
           onConfirmDismiss: () async {
-            await _deleteNote(note);
+            await _deleteNoteWithUndo(note);
             return false;
           },
         );
