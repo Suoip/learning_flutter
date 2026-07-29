@@ -12,7 +12,7 @@ class NoteListTile extends StatelessWidget {
     required this.onToggleFavorite,
     required this.onTogglePin,
     required this.onTogglePublish,
-    required this.onConfirmDismiss,
+    required this.onDismissed,
   });
 
   final NoteItem note;
@@ -21,7 +21,7 @@ class NoteListTile extends StatelessWidget {
   final VoidCallback onToggleFavorite;
   final VoidCallback onTogglePin;
   final VoidCallback onTogglePublish;
-  final Future<bool?> Function() onConfirmDismiss;
+  final VoidCallback onDismissed;
 
   @override
   Widget build(BuildContext context) {
@@ -44,7 +44,8 @@ class NoteListTile extends StatelessWidget {
         ),
         child: Icon(Icons.delete_outline_rounded, color: cs.onErrorContainer),
       ),
-      confirmDismiss: (_) => onConfirmDismiss(),
+      confirmDismiss: (_) async => true,
+      onDismissed: (_) => onDismissed(),
       child: Card(
         child: InkWell(
           borderRadius: BorderRadius.circular(20),

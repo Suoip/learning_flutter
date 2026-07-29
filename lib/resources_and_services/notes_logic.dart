@@ -44,6 +44,17 @@ class NoteItem {
       isFavorite: map['is_favorite'] == true,
     );
   }
+
+  NoteItem copyWith({bool? isPinned, bool? isFavorite, DateTime? updatedAt}) {
+    return NoteItem(
+      id: id,
+      title: title,
+      content: content,
+      updatedAt: updatedAt ?? this.updatedAt,
+      isPinned: isPinned ?? this.isPinned,
+      isFavorite: isFavorite ?? this.isFavorite,
+    );
+  }
 }
 
 class UserProfile {
@@ -154,6 +165,23 @@ class SharedNoteFeedItem {
   final int commentCount;
   final bool isLikedByCurrentUser;
   final bool isOwnPost;
+
+  SharedNoteFeedItem copyWith({bool? isLikedByCurrentUser, int? likeCount}) {
+    return SharedNoteFeedItem(
+      id: id,
+      noteId: noteId,
+      authorId: authorId,
+      authorUsername: authorUsername,
+      authorAvatarUrl: authorAvatarUrl,
+      title: title,
+      content: content,
+      publishedAt: publishedAt,
+      likeCount: likeCount ?? this.likeCount,
+      commentCount: commentCount,
+      isLikedByCurrentUser: isLikedByCurrentUser ?? this.isLikedByCurrentUser,
+      isOwnPost: isOwnPost,
+    );
+  }
 }
 
 class FeedCommentItem {

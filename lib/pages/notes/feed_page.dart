@@ -84,11 +84,22 @@ class _FeedPageState extends State<FeedPage> {
   }
 
   Future<void> _toggleLike(SharedNoteFeedItem item) async {
+    final index = _feed.indexWhere((i) => i.id == item.id);
+    if (index == -1) return;
+
+    final wasLiked = item.isLikedByCurrentUser;
+    setState(() {
+      _feed[index] = item.copyWith(
+        isLikedByCurrentUser: !wasLiked,
+        likeCount: item.likeCount + (wasLiked ? -1 : 1),
+      );
+    });
+
     try {
       await _logic.toggleFeedLike(item.id);
-      await _loadFeed();
     } catch (error) {
       if (!mounted) return;
+      setState(() => _feed[index] = item);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
             content:
