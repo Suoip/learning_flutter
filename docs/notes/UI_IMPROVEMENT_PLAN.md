@@ -262,16 +262,21 @@ and a single narrow column of notes is a poor use of space. Candidate: swap to a
 reflow into a responsive grid at wide widths — mirroring the breakpoint ladder SmartAcademy's hub
 already uses (`smart_academy_page.dart`, 1→2→3→4→5 columns at 480/840/1200/1600px).
 
-### 7.2 Three divergent empty-state treatments, two divergent error-banner conventions
+### 7.2 Three divergent empty-state treatments, two divergent error-banner conventions ✅ Shipped
 
-Notes' empty state (solid-fill card, `cs.primary`-colored icon, themed text), Feed's empty state
-(outlined card, default-colored icon, hardcoded `TextStyle`), and Friends' empty states (plain gray
-`Text`, no card/icon at all) are three different visual answers to the same "nothing here yet"
-concept, with no shared widget — each screen reimplemented it ad hoc. Error banners split the same
-way: Notes/Feed use theme-aware `cs.errorContainer`/`cs.onErrorContainer`; Profile/Friends use
-hardcoded `Colors.red.shade50`/`Colors.red.shade700`, which won't adapt correctly if this app ever
-gets a light theme and already looks slightly out of place against the rest of the dark palette.
-Candidate: extract a shared `NotesEmptyState` and `NotesErrorBanner` widget, adopt everywhere.
+Notes' empty state (solid-fill card, `cs.primary`-colored icon, themed text) and Feed's empty state
+(outlined card, default-colored icon, hardcoded `TextStyle`) were two different visual answers to
+the same "whole tab is empty" concept — unified into one shared `NotesEmptyState` widget
+(`lib/pages/notes/notes_empty_state.dart`), standardized on the outlined-card look (the more common
+convention elsewhere in the app) with a `cs.primary`-tinted icon and theme-driven text styles.
+Friends' inline "No pending requests."/"No friends yet." texts were deliberately **left as plain
+text, not unified** — they're a lighter-weight sub-state inside an already-bounded section card
+(Phase 2), and forcing the same heavy icon+card treatment in there would look nested/bloated.
+
+Error banners were unified everywhere via a new shared `NotesErrorBanner`
+(`lib/pages/notes/notes_error_banner.dart`), matching Notes/Feed's already-correct theme-aware
+`cs.errorContainer`/`cs.onErrorContainer` style — Profile and Friends moved off their hardcoded
+`Colors.red.shade50`/`Colors.red.shade700`.
 
 ### 7.3 Zero animation/transition anywhere
 

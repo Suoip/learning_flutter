@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../resources_and_services/notes_logic.dart';
 import 'feed_item_card.dart';
+import 'notes_empty_state.dart';
 
 class FeedTab extends StatelessWidget {
   const FeedTab({
@@ -19,39 +20,17 @@ class FeedTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     if (feed.isEmpty) {
       return RefreshIndicator(
         onRefresh: onRefresh,
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 70, 20, 120),
-          children: [
-            Card(
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
-                side:
-                    BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
-              ),
-              child: const Padding(
-                padding: EdgeInsets.all(22),
-                child: Column(
-                  children: [
-                    Icon(Icons.dynamic_feed_outlined, size: 36),
-                    SizedBox(height: 8),
-                    Text(
-                      'No shared notes yet',
-                      style:
-                          TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
-                    ),
-                    SizedBox(height: 6),
-                    Text(
-                      'When your friends publish notes, they will appear here.',
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
-                ),
-              ),
+          children: const [
+            NotesEmptyState(
+              icon: Icons.dynamic_feed_outlined,
+              title: 'No shared notes yet',
+              subtitle:
+                  'When your friends publish notes, they will appear here.',
             ),
           ],
         ),

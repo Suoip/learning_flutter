@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../resources_and_services/notes_logic.dart';
+import 'notes_error_banner.dart';
 import 'profile_avatar.dart';
 
 class FriendsTab extends StatelessWidget {
@@ -59,16 +60,7 @@ class FriendsTab extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 120),
         children: [
           if (error != null) ...[
-            Card(
-              color: Colors.red.shade50,
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Text(
-                  error!,
-                  style: TextStyle(color: Colors.red.shade700),
-                ),
-              ),
-            ),
+            NotesErrorBanner(message: error!),
             const SizedBox(height: 12),
           ],
           _sectionCard(
