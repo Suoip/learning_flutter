@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../../resources_and_services/notes_logic.dart';
 import 'expandable_text.dart';
+import 'notes_skeletons.dart';
 import 'profile_avatar.dart';
 
 class FeedPostDetailPage extends StatefulWidget {
@@ -119,10 +120,7 @@ class _FeedPostDetailPageState extends State<FeedPostDetailPage> {
 
   Widget _buildCommentsList(ColorScheme cs) {
     if (_loadingComments) {
-      return const Padding(
-        padding: EdgeInsets.all(20),
-        child: Center(child: CircularProgressIndicator()),
-      );
+      return const CommentsListSkeleton();
     }
 
     if (_comments.isEmpty) {

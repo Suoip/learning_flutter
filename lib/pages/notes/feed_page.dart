@@ -5,6 +5,7 @@ import '../../resources_and_services/notes_logic.dart';
 import 'feed_post_detail_page.dart';
 import 'feed_tab.dart';
 import 'notes_error_banner.dart';
+import 'notes_skeletons.dart';
 
 class FeedPage extends StatefulWidget {
   const FeedPage({
@@ -126,7 +127,7 @@ class _FeedPageState extends State<FeedPage> {
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const Center(child: CircularProgressIndicator());
+      return const FeedListSkeleton();
     }
 
     if (_error != null) {

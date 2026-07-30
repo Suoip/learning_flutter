@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../resources_and_services/notes_logic.dart';
 import 'friends_tab.dart';
+import 'notes_skeletons.dart';
 
 class FriendsPage extends StatefulWidget {
   const FriendsPage({super.key, required this.onPendingCountChanged});
@@ -204,7 +205,7 @@ class _FriendsPageState extends State<FriendsPage> {
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const Center(child: CircularProgressIndicator());
+      return const FriendsTabSkeleton();
     }
 
     return FriendsTab(

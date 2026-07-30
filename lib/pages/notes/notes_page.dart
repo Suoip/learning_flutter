@@ -11,6 +11,7 @@ import 'notes_auth_page.dart';
 import 'notes_empty_state.dart';
 import 'notes_error_banner.dart';
 import 'notes_profile_page.dart';
+import 'notes_skeletons.dart';
 import 'notes_toolbar.dart';
 import 'profile_avatar.dart';
 
@@ -509,7 +510,7 @@ class _NotesPageState extends State<NotesPage>
 
   Widget _buildNotesBody(List<NoteItem> notes) {
     if (_loadingNotes) {
-      return const Center(child: CircularProgressIndicator());
+      return const NotesListSkeleton();
     }
 
     if (_notesError != null) {
