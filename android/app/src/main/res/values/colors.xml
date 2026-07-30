@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Matches appColorScheme.surface in lib/theme/app_colors.dart - the app
+         is dark-theme-only, so the native launch screen should be too,
+         regardless of the OS's light/dark setting. -->
+    <color name="launch_background">#FF1E2128</color>
+</resources>
