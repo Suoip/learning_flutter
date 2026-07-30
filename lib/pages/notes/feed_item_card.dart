@@ -89,13 +89,23 @@ class FeedItemCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                  GestureDetector(
+                  InkWell(
                     onTap: onOpenLikedBy,
-                    child: AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 200),
-                      child: Text(
-                        '${item.likeCount}',
-                        key: ValueKey(item.likeCount),
+                    borderRadius: BorderRadius.circular(8),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 4, vertical: 2),
+                      child: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 200),
+                        child: Text(
+                          '${item.likeCount}',
+                          key: ValueKey(item.likeCount),
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            color: cs.primary,
+                          ),
+                        ),
                       ),
                     ),
                   ),

@@ -232,15 +232,28 @@ class _FeedPostDetailPageState extends State<FeedPostDetailPage> {
                     ),
                   ),
                 ),
-                GestureDetector(
+                InkWell(
                   onTap: () => showLikedBySheet(
                     context,
                     logic: widget.logic,
                     sharedNoteId: widget.item.id,
                   ),
-                  child: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 200),
-                    child: Text('$_likeCount', key: ValueKey(_likeCount)),
+                  borderRadius: BorderRadius.circular(8),
+                  child: Padding(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 200),
+                      child: Text(
+                        '$_likeCount',
+                        key: ValueKey(_likeCount),
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: cs.primary,
+                        ),
+                      ),
+                    ),
                   ),
                 ),
               ],
