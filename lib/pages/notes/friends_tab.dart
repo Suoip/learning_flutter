@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../resources_and_services/notes_logic.dart';
+import 'friend_status_button.dart';
 import 'notes_error_banner.dart';
 import 'pop_on_change.dart';
 import 'profile_avatar.dart';
@@ -36,6 +37,14 @@ class FriendsTab extends StatelessWidget {
   final ValueChanged<String> onCancelRequest;
   final ValueChanged<FriendItem> onRemoveFriend;
   final Future<void> Function() onRefresh;
+
+  FriendStatus _statusFor(String userId) {
+    if (friends.any((f) => f.friend.id == userId)) return FriendStatus.friend;
+    if (outgoingRequests.any((r) => r.counterpart.id == userId)) {
+      return FriendStatus.pending;
+    }
+    return FriendStatus.none;
+  }
 
   Widget _sectionCard(ColorScheme cs, {required List<Widget> children}) {
     return Card(
@@ -134,9 +143,9 @@ class FriendsTab extends StatelessWidget {
                                   radius: 18,
                                 ),
                                 title: Text('@${user.username}'),
-                                trailing: FilledButton(
-                                  onPressed: () => onSendRequest(user.username),
-                                  child: const Text('Add'),
+                                trailing: FriendStatusButton(
+                                  status: _statusFor(user.id),
+                                  onAdd: () => onSendRequest(user.username),
                                 ),
                               );
                             }),

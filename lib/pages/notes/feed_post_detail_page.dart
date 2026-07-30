@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../../resources_and_services/notes_logic.dart';
 import 'expandable_text.dart';
+import 'liked_by_sheet.dart';
 import 'notes_error_banner.dart';
 import 'notes_skeletons.dart';
 import 'pop_on_change.dart';
@@ -231,9 +232,16 @@ class _FeedPostDetailPageState extends State<FeedPostDetailPage> {
                     ),
                   ),
                 ),
-                AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 200),
-                  child: Text('$_likeCount', key: ValueKey(_likeCount)),
+                GestureDetector(
+                  onTap: () => showLikedBySheet(
+                    context,
+                    logic: widget.logic,
+                    sharedNoteId: widget.item.id,
+                  ),
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 200),
+                    child: Text('$_likeCount', key: ValueKey(_likeCount)),
+                  ),
                 ),
               ],
             ),

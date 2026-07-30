@@ -11,12 +11,14 @@ class FeedTab extends StatelessWidget {
     required this.feed,
     required this.onToggleLike,
     required this.onOpenComments,
+    required this.onOpenLikedBy,
     required this.onRefresh,
   });
 
   final List<SharedNoteFeedItem> feed;
   final ValueChanged<SharedNoteFeedItem> onToggleLike;
   final ValueChanged<SharedNoteFeedItem> onOpenComments;
+  final ValueChanged<SharedNoteFeedItem> onOpenLikedBy;
   final Future<void> Function() onRefresh;
 
   @override
@@ -53,6 +55,7 @@ class FeedTab extends StatelessWidget {
               item: item,
               onToggleLike: () => onToggleLike(item),
               onOpenComments: () => onOpenComments(item),
+              onOpenLikedBy: () => onOpenLikedBy(item),
             ),
           );
         },

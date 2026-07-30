@@ -47,6 +47,13 @@ abstract class FriendsDataSource {
   Future<void> updateFriendRequestStatus(String requestId, String status);
 
   Future<int> countPendingRequestsForReceiver(String userId);
+
+  /// How many friends the current user has in common with [otherUserId],
+  /// via the `mutual_friend_count` RPC (backend/sql/013_mutual_friend_count.sql)
+  /// - a plain friendships query can't compute this client-side, since RLS
+  /// only ever lets a user see their own friendship rows, never another
+  /// arbitrary user's.
+  Future<int> selectMutualFriendCount(String otherUserId);
 }
 
 /// The real [FriendsDataSource], backed by a Supabase project.
@@ -178,5 +185,14 @@ class SupabaseFriendsDataSource implements FriendsDataSource {
         .eq('receiver_id', userId)
         .eq('status', 'pending');
     return (rows as List<dynamic>).length;
+  }
+
+  @override
+  Future<int> selectMutualFriendCount(String otherUserId) async {
+    final result = await _client.rpc(
+      'mutual_friend_count',
+      params: {'p_other_user_id': otherUserId},
+    );
+    return result as int;
   }
 }

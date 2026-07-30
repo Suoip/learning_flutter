@@ -10,11 +10,13 @@ class FeedItemCard extends StatelessWidget {
     required this.item,
     required this.onToggleLike,
     required this.onOpenComments,
+    required this.onOpenLikedBy,
   });
 
   final SharedNoteFeedItem item;
   final VoidCallback onToggleLike;
   final VoidCallback onOpenComments;
+  final VoidCallback onOpenLikedBy;
 
   @override
   Widget build(BuildContext context) {
@@ -87,11 +89,14 @@ class FeedItemCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                  AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 200),
-                    child: Text(
-                      '${item.likeCount}',
-                      key: ValueKey(item.likeCount),
+                  GestureDetector(
+                    onTap: onOpenLikedBy,
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 200),
+                      child: Text(
+                        '${item.likeCount}',
+                        key: ValueKey(item.likeCount),
+                      ),
                     ),
                   ),
                   const SizedBox(width: 10),
