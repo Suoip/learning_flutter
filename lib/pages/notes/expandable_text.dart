@@ -35,28 +35,35 @@ class _ExpandableTextState extends State<ExpandableText> {
     final needsToggle = trimmed.length > ExpandableText.toggleThreshold;
     final showEllipsis = needsToggle && !_expanded;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          trimmed,
-          style: style,
-          maxLines: showEllipsis ? widget.trimLines : null,
-          overflow: showEllipsis ? TextOverflow.ellipsis : TextOverflow.visible,
-        ),
-        if (needsToggle) ...[
-          const SizedBox(height: 4),
-          InkWell(
-            onTap: () => setState(() => _expanded = !_expanded),
-            child: Text(
-              _expanded ? 'Show less' : 'Show more',
-              style: theme.textTheme.labelLarge?.copyWith(
-                color: theme.colorScheme.primary,
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeInOut,
+      alignment: Alignment.topLeft,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            trimmed,
+            style: style,
+            maxLines: showEllipsis ? widget.trimLines : null,
+            overflow:
+                showEllipsis ? TextOverflow.ellipsis : TextOverflow.visible,
+          ),
+          if (needsToggle) ...[
+            const SizedBox(height: 4),
+            InkWell(
+              onTap: () => setState(() => _expanded = !_expanded),
+              child: Text(
+                _expanded ? 'Show less' : 'Show more',
+                style: theme.textTheme.labelLarge?.copyWith(
+                  color: theme.colorScheme.primary,
+                ),
               ),
             ),
-          ),
+          ],
         ],
-      ],
+      ),
     );
   }
 }

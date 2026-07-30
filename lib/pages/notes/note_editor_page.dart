@@ -206,11 +206,13 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
   }
 
   Widget _buildStatusPill({
+    required Key key,
     required String label,
     required Color background,
     required Color foreground,
   }) {
     return Container(
+      key: key,
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
         color: background,
@@ -379,18 +381,26 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
                           style: Theme.of(context).textTheme.bodySmall,
                         ),
                       ),
-                      if (_isDirty)
-                        _buildStatusPill(
-                          label: 'Unsaved changes',
-                          background: cs.primaryContainer,
-                          foreground: cs.onPrimaryContainer,
-                        )
-                      else if (_hasSavedOnce)
-                        _buildStatusPill(
-                          label: 'Saved',
-                          background: cs.secondaryContainer,
-                          foreground: cs.onSecondaryContainer,
-                        ),
+                      AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 200),
+                        child: _isDirty
+                            ? _buildStatusPill(
+                                key: const ValueKey('unsaved'),
+                                label: 'Unsaved changes',
+                                background: cs.primaryContainer,
+                                foreground: cs.onPrimaryContainer,
+                              )
+                            : _hasSavedOnce
+                                ? _buildStatusPill(
+                                    key: const ValueKey('saved'),
+                                    label: 'Saved',
+                                    background: cs.secondaryContainer,
+                                    foreground: cs.onSecondaryContainer,
+                                  )
+                                : const SizedBox.shrink(
+                                    key: ValueKey('empty'),
+                                  ),
+                      ),
                     ],
                   ),
                 ],
