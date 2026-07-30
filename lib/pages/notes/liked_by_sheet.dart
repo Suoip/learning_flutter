@@ -41,11 +41,12 @@ Future<void> showLikedBySheet(
 }
 
 class _LikerRow {
-  _LikerRow({required this.liker, required this.status});
+  _LikerRow({required this.liker, required this.status, this.isSelf = false});
 
   final FeedLikerItem liker;
   FriendStatus status;
   int? mutualCount;
+  final bool isSelf;
 }
 
 class _LikedBySheet extends StatefulWidget {
@@ -84,22 +85,24 @@ class _LikedBySheetState extends State<_LikedBySheet> {
       final friendIds = friends.map((f) => f.friend.id).toSet();
       final pendingIds = outgoing.map((r) => r.counterpart.id).toSet();
 
-      final visible =
-          likers.where((liker) => liker.userId != currentUserId).map((liker) {
+      final all = likers.map((liker) {
+        final isSelf = liker.userId == currentUserId;
         final status = friendIds.contains(liker.userId)
             ? FriendStatus.friend
             : pendingIds.contains(liker.userId)
                 ? FriendStatus.pending
                 : FriendStatus.none;
-        return _LikerRow(liker: liker, status: status);
+        return _LikerRow(liker: liker, status: status, isSelf: isSelf);
       }).toList();
 
-      // Friends first, then everyone else - .where() preserves each group's
-      // original (like-order) relative ordering, so this doesn't need a
-      // sort comparator (List.sort isn't guaranteed stable in Dart).
+      // You first (if you liked it too), then friends, then everyone else -
+      // .where() preserves each group's original (like-order) relative
+      // ordering, so this doesn't need a sort comparator (List.sort isn't
+      // guaranteed stable in Dart).
       final rows = [
-        ...visible.where((row) => row.status == FriendStatus.friend),
-        ...visible.where((row) => row.status != FriendStatus.friend),
+        ...all.where((row) => row.isSelf),
+        ...all.where((row) => !row.isSelf && row.status == FriendStatus.friend),
+        ...all.where((row) => !row.isSelf && row.status != FriendStatus.friend),
       ];
 
       if (!mounted) return;
@@ -109,7 +112,7 @@ class _LikedBySheetState extends State<_LikedBySheet> {
       });
 
       for (final row in rows) {
-        if (row.status == FriendStatus.friend) continue;
+        if (row.isSelf || row.status == FriendStatus.friend) continue;
         widget.logic.fetchMutualFriendCount(row.liker.userId).then((count) {
           if (!mounted) return;
           setState(() => row.mutualCount = count);
@@ -239,25 +242,28 @@ class _LikedBySheetState extends State<_LikedBySheet> {
       separatorBuilder: (_, __) => const Divider(height: 1),
       itemBuilder: (context, index) {
         final row = _rows[index];
-        final showMutuals =
-            row.status != FriendStatus.friend && (row.mutualCount ?? 0) > 0;
+        final showMutuals = !row.isSelf &&
+            row.status != FriendStatus.friend &&
+            (row.mutualCount ?? 0) > 0;
         return ListTile(
           leading: ProfileAvatar(
             username: row.liker.username,
             avatarUrl: row.liker.avatarUrl,
             radius: 18,
           ),
-          title: Text('@${row.liker.username}'),
+          title: Text(row.isSelf ? 'You' : '@${row.liker.username}'),
           subtitle: showMutuals
               ? Text(
                   '${row.mutualCount} mutual '
                   'friend${row.mutualCount == 1 ? '' : 's'}',
                 )
               : null,
-          trailing: FriendStatusButton(
-            status: row.status,
-            onAdd: () => _addFriend(row),
-          ),
+          trailing: row.isSelf
+              ? null
+              : FriendStatusButton(
+                  status: row.status,
+                  onAdd: () => _addFriend(row),
+                ),
         );
       },
     );
