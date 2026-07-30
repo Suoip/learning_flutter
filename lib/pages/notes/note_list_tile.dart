@@ -115,7 +115,13 @@ class NoteListTile extends StatelessWidget {
                         Icons.more_vert,
                         color: cs.onSurfaceVariant,
                       ),
-                      onSelected: (_) => onTogglePublish(),
+                      onSelected: (value) {
+                        if (value == 'delete') {
+                          onDismissed();
+                        } else {
+                          onTogglePublish();
+                        }
+                      },
                       itemBuilder: (context) => [
                         PopupMenuItem(
                           value: 'toggle_publish',
@@ -133,6 +139,21 @@ class NoteListTile extends StatelessWidget {
                               isPublished
                                   ? 'Unpublish from friends'
                                   : 'Publish to friends',
+                            ),
+                          ),
+                        ),
+                        const PopupMenuDivider(),
+                        PopupMenuItem(
+                          value: 'delete',
+                          child: ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            leading: Icon(
+                              Icons.delete_outline_rounded,
+                              color: cs.error,
+                            ),
+                            title: Text(
+                              'Delete',
+                              style: TextStyle(color: cs.error),
                             ),
                           ),
                         ),
