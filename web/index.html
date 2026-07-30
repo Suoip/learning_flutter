@@ -31,6 +31,15 @@
 
   <title>new_project</title>
   <link rel="manifest" href="manifest.json">
+
+  <!-- App is dark-theme-only (see lib/theme/app_colors.dart) - match its
+       surface color here so the page doesn't flash white before Flutter
+       loads and paints its first frame. -->
+  <style>
+    html, body {
+      background-color: #1E2128;
+    }
+  </style>
 </head>
 <body>
   <!--
