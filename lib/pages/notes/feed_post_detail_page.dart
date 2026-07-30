@@ -231,7 +231,10 @@ class _FeedPostDetailPageState extends State<FeedPostDetailPage> {
                     ),
                   ),
                 ),
-                Text('$_likeCount'),
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 200),
+                  child: Text('$_likeCount', key: ValueKey(_likeCount)),
+                ),
               ],
             ),
             Divider(color: cs.outlineVariant),
