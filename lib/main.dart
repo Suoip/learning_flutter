@@ -71,6 +71,10 @@ class _LearningFlutterAppState extends State<LearningFlutterApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      // Web engine overwrites the HTML <title> with this value once the app
+      // boots - without it, the browser tab title goes blank after load
+      // regardless of what index.html's own <title> tag says.
+      title: 'Mini Projects',
       navigatorKey: _navigatorKey,
       debugShowCheckedModeBanner: false,
       theme: AppTheme.dark,

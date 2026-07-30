@@ -59,7 +59,7 @@ class ProjectsHomePage extends StatelessWidget {
     return Scaffold(
       backgroundColor: const Color(0xFFF4F7FB),
       appBar: AppBar(
-        title: const Text('Learning Flutter'),
+        title: const Text('Mini Projects'),
         centerTitle: false,
         elevation: 0,
         backgroundColor: const Color(0xFF0F172A),
