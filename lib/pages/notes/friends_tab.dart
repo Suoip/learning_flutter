@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../resources_and_services/notes_logic.dart';
 import 'notes_error_banner.dart';
+import 'pop_on_change.dart';
 import 'profile_avatar.dart';
 
 class FriendsTab extends StatelessWidget {
@@ -141,8 +142,12 @@ class FriendsTab extends StatelessWidget {
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
                   ),
                   const SizedBox(width: 8),
-                  if (incomingRequests.isNotEmpty)
-                    Badge.count(count: incomingRequests.length),
+                  PopOnChange(
+                    active: incomingRequests.isNotEmpty,
+                    child: incomingRequests.isEmpty
+                        ? const SizedBox.shrink()
+                        : Badge.count(count: incomingRequests.length),
+                  ),
                 ],
               ),
               const SizedBox(height: 6),

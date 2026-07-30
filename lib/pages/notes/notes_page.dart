@@ -15,7 +15,9 @@ import 'notes_error_banner.dart';
 import 'notes_profile_page.dart';
 import 'notes_skeletons.dart';
 import 'notes_toolbar.dart';
+import 'pop_on_change.dart';
 import 'profile_avatar.dart';
+import 'staggered_list_item.dart';
 
 class NotesPage extends StatefulWidget {
   const NotesPage({super.key});
@@ -546,14 +548,18 @@ class _NotesPageState extends State<NotesPage>
         separatorBuilder: (_, __) => const SizedBox(height: 12),
         itemBuilder: (context, index) {
           final note = notes[index];
-          return NoteListTile(
-            note: note,
-            isPublished: _publishedNoteIds.contains(note.id),
-            onTap: () => _openNote(note),
-            onToggleFavorite: () => _toggleFavorite(note),
-            onTogglePin: () => _togglePin(note),
-            onTogglePublish: () => _togglePublish(note),
-            onDismissed: () => _deleteNoteWithUndo(note),
+          return StaggeredListItem(
+            key: ValueKey(note.id),
+            index: index,
+            child: NoteListTile(
+              note: note,
+              isPublished: _publishedNoteIds.contains(note.id),
+              onTap: () => _openNote(note),
+              onToggleFavorite: () => _toggleFavorite(note),
+              onTogglePin: () => _togglePin(note),
+              onTogglePublish: () => _togglePublish(note),
+              onDismissed: () => _deleteNoteWithUndo(note),
+            ),
           );
         },
       );
@@ -684,28 +690,40 @@ class _NotesPageState extends State<NotesPage>
                   label: 'Notes',
                 ),
                 NavigationDestination(
-                  icon: Badge.count(
-                    count: _unseenFeedCount,
-                    isLabelVisible: _unseenFeedCount > 0,
-                    child: const Icon(Icons.dynamic_feed_outlined),
+                  icon: PopOnChange(
+                    active: _unseenFeedCount > 0,
+                    child: Badge.count(
+                      count: _unseenFeedCount,
+                      isLabelVisible: _unseenFeedCount > 0,
+                      child: const Icon(Icons.dynamic_feed_outlined),
+                    ),
                   ),
-                  selectedIcon: Badge.count(
-                    count: _unseenFeedCount,
-                    isLabelVisible: _unseenFeedCount > 0,
-                    child: const Icon(Icons.dynamic_feed_rounded),
+                  selectedIcon: PopOnChange(
+                    active: _unseenFeedCount > 0,
+                    child: Badge.count(
+                      count: _unseenFeedCount,
+                      isLabelVisible: _unseenFeedCount > 0,
+                      child: const Icon(Icons.dynamic_feed_rounded),
+                    ),
                   ),
                   label: 'Feed',
                 ),
                 NavigationDestination(
-                  icon: Badge.count(
-                    count: _pendingRequestsCount,
-                    isLabelVisible: _pendingRequestsCount > 0,
-                    child: const Icon(Icons.group_outlined),
+                  icon: PopOnChange(
+                    active: _pendingRequestsCount > 0,
+                    child: Badge.count(
+                      count: _pendingRequestsCount,
+                      isLabelVisible: _pendingRequestsCount > 0,
+                      child: const Icon(Icons.group_outlined),
+                    ),
                   ),
-                  selectedIcon: Badge.count(
-                    count: _pendingRequestsCount,
-                    isLabelVisible: _pendingRequestsCount > 0,
-                    child: const Icon(Icons.group_rounded),
+                  selectedIcon: PopOnChange(
+                    active: _pendingRequestsCount > 0,
+                    child: Badge.count(
+                      count: _pendingRequestsCount,
+                      isLabelVisible: _pendingRequestsCount > 0,
+                      child: const Icon(Icons.group_rounded),
+                    ),
                   ),
                   label: 'Friends',
                 ),
