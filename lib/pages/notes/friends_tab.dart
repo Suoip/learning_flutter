@@ -97,38 +97,57 @@ class FriendsTab extends StatelessWidget {
                   ),
                 ],
               ),
-              if (searchController.text.trim().isNotEmpty &&
-                  !searching &&
-                  searchResults.isEmpty) ...[
-                const SizedBox(height: 10),
-                Text(
-                  'No users found. Make sure the username is correct.',
-                  style: TextStyle(color: cs.onSurfaceVariant),
+              AnimatedSize(
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeInOut,
+                alignment: Alignment.topLeft,
+                child: Builder(
+                  builder: (context) {
+                    if (searchController.text.trim().isNotEmpty &&
+                        !searching &&
+                        searchResults.isEmpty) {
+                      return Padding(
+                        padding: const EdgeInsets.only(top: 10),
+                        child: Text(
+                          'No users found. Make sure the username is correct.',
+                          style: TextStyle(color: cs.onSurfaceVariant),
+                        ),
+                      );
+                    }
+                    if (searchResults.isNotEmpty) {
+                      return Padding(
+                        padding: const EdgeInsets.only(top: 10),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Search results',
+                              style: TextStyle(fontWeight: FontWeight.w700),
+                            ),
+                            const SizedBox(height: 6),
+                            ...searchResults.map((user) {
+                              return ListTile(
+                                contentPadding: EdgeInsets.zero,
+                                leading: ProfileAvatar(
+                                  username: user.username,
+                                  avatarUrl: user.avatarUrl,
+                                  radius: 18,
+                                ),
+                                title: Text('@${user.username}'),
+                                trailing: FilledButton(
+                                  onPressed: () => onSendRequest(user.username),
+                                  child: const Text('Add'),
+                                ),
+                              );
+                            }),
+                          ],
+                        ),
+                      );
+                    }
+                    return const SizedBox.shrink();
+                  },
                 ),
-              ],
-              if (searchResults.isNotEmpty) ...[
-                const SizedBox(height: 10),
-                const Text(
-                  'Search results',
-                  style: TextStyle(fontWeight: FontWeight.w700),
-                ),
-                const SizedBox(height: 6),
-                ...searchResults.map((user) {
-                  return ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: ProfileAvatar(
-                      username: user.username,
-                      avatarUrl: user.avatarUrl,
-                      radius: 18,
-                    ),
-                    title: Text('@${user.username}'),
-                    trailing: FilledButton(
-                      onPressed: () => onSendRequest(user.username),
-                      child: const Text('Add'),
-                    ),
-                  );
-                }),
-              ],
+              ),
             ],
           ),
           const SizedBox(height: 12),
@@ -151,41 +170,52 @@ class FriendsTab extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 6),
-              if (incomingRequests.isEmpty)
-                Text(
-                  'No pending incoming requests.',
-                  style: TextStyle(color: cs.onSurfaceVariant),
-                )
-              else
-                ...incomingRequests.map((request) {
-                  return Card(
-                    margin: const EdgeInsets.symmetric(vertical: 5),
-                    child: Padding(
-                      padding: const EdgeInsets.all(10),
-                      child: Row(
-                        children: [
-                          ProfileAvatar(
-                            username: request.counterpart.username,
-                            avatarUrl: request.counterpart.avatarUrl,
-                            radius: 16,
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                              child: Text('@${request.counterpart.username}')),
-                          TextButton(
-                            onPressed: () =>
-                                onRespondRequest(request.id, false),
-                            child: const Text('Decline'),
-                          ),
-                          FilledButton(
-                            onPressed: () => onRespondRequest(request.id, true),
-                            child: const Text('Accept'),
-                          ),
-                        ],
+              AnimatedSize(
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeInOut,
+                alignment: Alignment.topLeft,
+                child: incomingRequests.isEmpty
+                    ? Text(
+                        'No pending incoming requests.',
+                        style: TextStyle(color: cs.onSurfaceVariant),
+                      )
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: incomingRequests.map((request) {
+                          return Card(
+                            margin: const EdgeInsets.symmetric(vertical: 5),
+                            child: Padding(
+                              padding: const EdgeInsets.all(10),
+                              child: Row(
+                                children: [
+                                  ProfileAvatar(
+                                    username: request.counterpart.username,
+                                    avatarUrl: request.counterpart.avatarUrl,
+                                    radius: 16,
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Text(
+                                      '@${request.counterpart.username}',
+                                    ),
+                                  ),
+                                  TextButton(
+                                    onPressed: () =>
+                                        onRespondRequest(request.id, false),
+                                    child: const Text('Decline'),
+                                  ),
+                                  FilledButton(
+                                    onPressed: () =>
+                                        onRespondRequest(request.id, true),
+                                    child: const Text('Accept'),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        }).toList(),
                       ),
-                    ),
-                  );
-                }),
+              ),
             ],
           ),
           const SizedBox(height: 12),
@@ -197,24 +227,29 @@ class FriendsTab extends StatelessWidget {
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 6),
-              if (outgoingRequests.isEmpty)
-                Text(
-                  'No pending outgoing requests.',
-                  style: TextStyle(color: cs.onSurfaceVariant),
-                )
-              else
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: outgoingRequests
-                      .map((request) => Chip(
-                            label: Text('@${request.counterpart.username}'),
-                            deleteIcon: const Icon(Icons.close, size: 18),
-                            deleteButtonTooltipMessage: 'Cancel request',
-                            onDeleted: () => onCancelRequest(request.id),
-                          ))
-                      .toList(),
-                ),
+              AnimatedSize(
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeInOut,
+                alignment: Alignment.topLeft,
+                child: outgoingRequests.isEmpty
+                    ? Text(
+                        'No pending outgoing requests.',
+                        style: TextStyle(color: cs.onSurfaceVariant),
+                      )
+                    : Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: outgoingRequests
+                            .map((request) => Chip(
+                                  label:
+                                      Text('@${request.counterpart.username}'),
+                                  deleteIcon: const Icon(Icons.close, size: 18),
+                                  deleteButtonTooltipMessage: 'Cancel request',
+                                  onDeleted: () => onCancelRequest(request.id),
+                                ))
+                            .toList(),
+                      ),
+              ),
             ],
           ),
           const SizedBox(height: 12),
@@ -227,31 +262,39 @@ class FriendsTab extends StatelessWidget {
                     const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 6),
-              if (friends.isEmpty)
-                Text(
-                  'No friends yet.',
-                  style: TextStyle(color: cs.onSurfaceVariant),
-                )
-              else
-                ...friends.map((friend) {
-                  return ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: ProfileAvatar(
-                      username: friend.friend.username,
-                      avatarUrl: friend.friend.avatarUrl,
-                      radius: 18,
-                    ),
-                    title: Text('@${friend.friend.username}'),
-                    subtitle: Text(
-                      'Friends since ${NotesLogic.formatUpdatedTime(friend.createdAt)}',
-                    ),
-                    trailing: IconButton(
-                      icon: const Icon(Icons.person_remove_outlined),
-                      tooltip: 'Remove friend',
-                      onPressed: () => onRemoveFriend(friend),
-                    ),
-                  );
-                }),
+              AnimatedSize(
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeInOut,
+                alignment: Alignment.topLeft,
+                child: friends.isEmpty
+                    ? Text(
+                        'No friends yet.',
+                        style: TextStyle(color: cs.onSurfaceVariant),
+                      )
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: friends.map((friend) {
+                          return ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            leading: ProfileAvatar(
+                              username: friend.friend.username,
+                              avatarUrl: friend.friend.avatarUrl,
+                              radius: 18,
+                            ),
+                            title: Text('@${friend.friend.username}'),
+                            subtitle: Text(
+                              'Friends since '
+                              '${NotesLogic.formatUpdatedTime(friend.createdAt)}',
+                            ),
+                            trailing: IconButton(
+                              icon: const Icon(Icons.person_remove_outlined),
+                              tooltip: 'Remove friend',
+                              onPressed: () => onRemoveFriend(friend),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+              ),
             ],
           ),
         ],
