@@ -3,6 +3,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../resources_and_services/notes_logic.dart';
 import 'notes_error_banner.dart';
+import 'notes_skeletons.dart';
 import 'password_form_section.dart';
 import 'profile_avatar_section.dart';
 import 'username_form_section.dart';
@@ -193,39 +194,43 @@ class _NotesProfilePageState extends State<NotesProfilePage> {
           icon: const Icon(Icons.arrow_back_rounded),
         ),
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : SafeArea(
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-                children: [
-                  if (_error != null) ...[
-                    NotesErrorBanner(message: _error!),
+      body: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 250),
+        child: _loading
+            ? const ProfilePageSkeleton(key: ValueKey('loading'))
+            : SafeArea(
+                key: const ValueKey('loaded'),
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+                  children: [
+                    if (_error != null) ...[
+                      NotesErrorBanner(message: _error!),
+                      const SizedBox(height: 14),
+                    ],
+                    ProfileAvatarSection(
+                      profile: _profile,
+                      uploadingAvatar: _uploadingAvatar,
+                      onPickAvatar: _pickAndUploadAvatar,
+                    ),
                     const SizedBox(height: 14),
+                    UsernameFormSection(
+                      formKey: _usernameFormKey,
+                      controller: _usernameController,
+                      saving: _savingUsername,
+                      onSave: _saveUsername,
+                    ),
+                    const SizedBox(height: 14),
+                    PasswordFormSection(
+                      formKey: _passwordFormKey,
+                      passwordController: _passwordController,
+                      confirmPasswordController: _confirmPasswordController,
+                      saving: _savingPassword,
+                      onSave: _savePassword,
+                    ),
                   ],
-                  ProfileAvatarSection(
-                    profile: _profile,
-                    uploadingAvatar: _uploadingAvatar,
-                    onPickAvatar: _pickAndUploadAvatar,
-                  ),
-                  const SizedBox(height: 14),
-                  UsernameFormSection(
-                    formKey: _usernameFormKey,
-                    controller: _usernameController,
-                    saving: _savingUsername,
-                    onSave: _saveUsername,
-                  ),
-                  const SizedBox(height: 14),
-                  PasswordFormSection(
-                    formKey: _passwordFormKey,
-                    passwordController: _passwordController,
-                    confirmPasswordController: _confirmPasswordController,
-                    saving: _savingPassword,
-                    onSave: _savePassword,
-                  ),
-                ],
+                ),
               ),
-            ),
+      ),
     );
   }
 }

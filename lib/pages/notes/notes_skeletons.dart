@@ -367,3 +367,70 @@ class CommentsListSkeleton extends StatelessWidget {
     );
   }
 }
+
+class _AvatarSectionSkeleton extends StatelessWidget {
+  const _AvatarSectionSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return _skeletonCard(
+      cs: cs,
+      borderRadius: 20,
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          children: [
+            const _SkeletonBox(width: 88, height: 88, borderRadius: 44),
+            const SizedBox(height: 12),
+            const _SkeletonBox(width: 100, height: 16),
+            const SizedBox(height: 12),
+            _SkeletonBox(width: 180, height: 40, borderRadius: 14),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Stands in for `notes_profile_page.dart`'s avatar/username/password
+/// sections while the profile loads.
+class ProfilePageSkeleton extends StatelessWidget {
+  const ProfilePageSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return _Shimmer(
+      child: ListView(
+        physics: const NeverScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+        children: [
+          const _AvatarSectionSkeleton(),
+          const SizedBox(height: 14),
+          _sectionCardSkeleton(
+            cs,
+            titleWidth: 90,
+            rows: const [
+              _SkeletonBox(height: 48, borderRadius: 14),
+              SizedBox(height: 12),
+              _SkeletonBox(width: 140, height: 40, borderRadius: 14),
+            ],
+          ),
+          const SizedBox(height: 14),
+          _sectionCardSkeleton(
+            cs,
+            titleWidth: 110,
+            rows: const [
+              _SkeletonBox(height: 48, borderRadius: 14),
+              SizedBox(height: 10),
+              _SkeletonBox(height: 48, borderRadius: 14),
+              SizedBox(height: 12),
+              _SkeletonBox(width: 140, height: 40, borderRadius: 14),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
