@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../resources_and_services/notes_logic.dart';
 import 'feed_item_card.dart';
 import 'notes_empty_state.dart';
+import 'staggered_list_item.dart';
 
 class FeedTab extends StatelessWidget {
   const FeedTab({
@@ -45,10 +46,14 @@ class FeedTab extends StatelessWidget {
         separatorBuilder: (_, __) => const SizedBox(height: 10),
         itemBuilder: (context, index) {
           final item = feed[index];
-          return FeedItemCard(
-            item: item,
-            onToggleLike: () => onToggleLike(item),
-            onOpenComments: () => onOpenComments(item),
+          return StaggeredListItem(
+            key: ValueKey(item.id),
+            index: index,
+            child: FeedItemCard(
+              item: item,
+              onToggleLike: () => onToggleLike(item),
+              onOpenComments: () => onOpenComments(item),
+            ),
           );
         },
       ),

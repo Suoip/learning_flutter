@@ -16,6 +16,7 @@ import 'notes_profile_page.dart';
 import 'notes_skeletons.dart';
 import 'notes_toolbar.dart';
 import 'profile_avatar.dart';
+import 'staggered_list_item.dart';
 
 class NotesPage extends StatefulWidget {
   const NotesPage({super.key});
@@ -546,14 +547,18 @@ class _NotesPageState extends State<NotesPage>
         separatorBuilder: (_, __) => const SizedBox(height: 12),
         itemBuilder: (context, index) {
           final note = notes[index];
-          return NoteListTile(
-            note: note,
-            isPublished: _publishedNoteIds.contains(note.id),
-            onTap: () => _openNote(note),
-            onToggleFavorite: () => _toggleFavorite(note),
-            onTogglePin: () => _togglePin(note),
-            onTogglePublish: () => _togglePublish(note),
-            onDismissed: () => _deleteNoteWithUndo(note),
+          return StaggeredListItem(
+            key: ValueKey(note.id),
+            index: index,
+            child: NoteListTile(
+              note: note,
+              isPublished: _publishedNoteIds.contains(note.id),
+              onTap: () => _openNote(note),
+              onToggleFavorite: () => _toggleFavorite(note),
+              onTogglePin: () => _togglePin(note),
+              onTogglePublish: () => _togglePublish(note),
+              onDismissed: () => _deleteNoteWithUndo(note),
+            ),
           );
         },
       );
