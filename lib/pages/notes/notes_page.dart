@@ -605,24 +605,44 @@ class _NotesPageState extends State<NotesPage>
           const SizedBox(width: 4),
         ],
       ),
-      body: SafeArea(
-        child: FadeTransition(
-          opacity: CurvedAnimation(
-            parent: _tabFadeController,
-            curve: Curves.easeIn,
-          ),
-          child: IndexedStack(
-            index: _selectedIndex,
-            children: [
-              _buildNotesTab(notes),
-              FeedPage(
-                isActive: _selectedIndex == 1,
-                onUnseenCountChanged: _updateUnseenFeedCount,
+      body: Stack(
+        children: [
+          // A very soft glow behind the tab content - the two colors are
+          // adjacent surface tiers (surfaceContainerLow/Lowest), so this
+          // reads as ambient depth rather than a visible design change.
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: RadialGradient(
+                  center: Alignment.topCenter,
+                  radius: 1.3,
+                  colors: [cs.surfaceContainerLow, cs.surfaceContainerLowest],
+                ),
               ),
-              FriendsPage(onPendingCountChanged: _updatePendingRequestsCount),
-            ],
+            ),
           ),
-        ),
+          SafeArea(
+            child: FadeTransition(
+              opacity: CurvedAnimation(
+                parent: _tabFadeController,
+                curve: Curves.easeIn,
+              ),
+              child: IndexedStack(
+                index: _selectedIndex,
+                children: [
+                  _buildNotesTab(notes),
+                  FeedPage(
+                    isActive: _selectedIndex == 1,
+                    onUnseenCountChanged: _updateUnseenFeedCount,
+                  ),
+                  FriendsPage(
+                    onPendingCountChanged: _updatePendingRequestsCount,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,
