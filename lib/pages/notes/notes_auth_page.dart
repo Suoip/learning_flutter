@@ -175,7 +175,9 @@ class _NotesAuthPageState extends State<NotesAuthPage> {
                     const SizedBox(height: 8),
                     Text(
                       dialogError!,
-                      style: TextStyle(color: Colors.red.shade700),
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
+                      ),
                     ),
                   ],
                 ],
@@ -462,13 +464,12 @@ class _NotesAuthPageState extends State<NotesAuthPage> {
                             Container(
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
-                                color: Colors.blue.shade50,
+                                color: cs.tertiaryContainer,
                                 borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: Colors.blue.shade100),
                               ),
                               child: Text(
                                 _infoText!,
-                                style: TextStyle(color: Colors.blue.shade700),
+                                style: TextStyle(color: cs.onTertiaryContainer),
                               ),
                             ),
                           ],
@@ -477,13 +478,12 @@ class _NotesAuthPageState extends State<NotesAuthPage> {
                             Container(
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
-                                color: Colors.red.shade50,
+                                color: cs.errorContainer,
                                 borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: Colors.red.shade100),
                               ),
                               child: Text(
                                 _errorText!,
-                                style: TextStyle(color: Colors.red.shade700),
+                                style: TextStyle(color: cs.onErrorContainer),
                               ),
                             ),
                           ],
