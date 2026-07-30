@@ -204,24 +204,30 @@ class _FriendsPageState extends State<FriendsPage> {
 
   @override
   Widget build(BuildContext context) {
-    if (_loading) {
-      return const FriendsTabSkeleton();
-    }
+    final Widget child = _loading
+        ? const FriendsTabSkeleton()
+        : FriendsTab(
+            searchController: _searchController,
+            searching: _searching,
+            error: _error,
+            searchResults: _searchResults,
+            incomingRequests: _incomingRequests,
+            outgoingRequests: _outgoingRequests,
+            friends: _friends,
+            onSearch: _searchUsers,
+            onSendRequest: _sendRequest,
+            onRespondRequest: _respondRequest,
+            onCancelRequest: _cancelRequest,
+            onRemoveFriend: _removeFriend,
+            onRefresh: _loadAll,
+          );
 
-    return FriendsTab(
-      searchController: _searchController,
-      searching: _searching,
-      error: _error,
-      searchResults: _searchResults,
-      incomingRequests: _incomingRequests,
-      outgoingRequests: _outgoingRequests,
-      friends: _friends,
-      onSearch: _searchUsers,
-      onSendRequest: _sendRequest,
-      onRespondRequest: _respondRequest,
-      onCancelRequest: _cancelRequest,
-      onRemoveFriend: _removeFriend,
-      onRefresh: _loadAll,
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 250),
+      child: KeyedSubtree(
+        key: ValueKey(_loading ? 'loading' : 'loaded'),
+        child: child,
+      ),
     );
   }
 }

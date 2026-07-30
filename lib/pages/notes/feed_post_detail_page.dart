@@ -119,37 +119,45 @@ class _FeedPostDetailPageState extends State<FeedPostDetailPage> {
   }
 
   Widget _buildCommentsList(ColorScheme cs) {
+    final String stateKey;
+    final Widget child;
     if (_loadingComments) {
-      return const CommentsListSkeleton();
-    }
-
-    if (_comments.isEmpty) {
-      return Padding(
+      stateKey = 'loading';
+      child = const CommentsListSkeleton();
+    } else if (_comments.isEmpty) {
+      stateKey = 'empty';
+      child = Padding(
         padding: const EdgeInsets.symmetric(vertical: 12),
         child: Text(
           'No comments yet.',
           style: TextStyle(color: cs.onSurfaceVariant),
         ),
       );
+    } else {
+      stateKey = 'loaded';
+      child = Column(
+        children: _comments.map((comment) {
+          return ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: ProfileAvatar(
+              username: comment.authorUsername,
+              avatarUrl: comment.authorAvatarUrl,
+              radius: 14,
+            ),
+            title: Text('@${comment.authorUsername}'),
+            subtitle: Text(comment.content),
+            trailing: Text(
+              DateFormat('MMM d').format(comment.createdAt.toLocal()),
+              style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12),
+            ),
+          );
+        }).toList(),
+      );
     }
 
-    return Column(
-      children: _comments.map((comment) {
-        return ListTile(
-          contentPadding: EdgeInsets.zero,
-          leading: ProfileAvatar(
-            username: comment.authorUsername,
-            avatarUrl: comment.authorAvatarUrl,
-            radius: 14,
-          ),
-          title: Text('@${comment.authorUsername}'),
-          subtitle: Text(comment.content),
-          trailing: Text(
-            DateFormat('MMM d').format(comment.createdAt.toLocal()),
-            style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12),
-          ),
-        );
-      }).toList(),
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 250),
+      child: KeyedSubtree(key: ValueKey(stateKey), child: child),
     );
   }
 
