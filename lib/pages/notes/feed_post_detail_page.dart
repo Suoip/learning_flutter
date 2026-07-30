@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../resources_and_services/notes_logic.dart';
 import 'expandable_text.dart';
 import 'notes_skeletons.dart';
+import 'pop_on_change.dart';
 import 'profile_avatar.dart';
 
 class FeedPostDetailPage extends StatefulWidget {
@@ -218,12 +219,15 @@ class _FeedPostDetailPageState extends State<FeedPostDetailPage> {
                 IconButton(
                   tooltip: _isLiked ? 'Unlike' : 'Like',
                   onPressed: _toggleLike,
-                  icon: Icon(
-                    _isLiked
-                        ? Icons.favorite_rounded
-                        : Icons.favorite_border_rounded,
-                    color:
-                        _isLiked ? Colors.pink.shade500 : cs.onSurfaceVariant,
+                  icon: PopOnChange(
+                    active: _isLiked,
+                    child: Icon(
+                      _isLiked
+                          ? Icons.favorite_rounded
+                          : Icons.favorite_border_rounded,
+                      color:
+                          _isLiked ? Colors.pink.shade500 : cs.onSurfaceVariant,
+                    ),
                   ),
                 ),
                 Text('$_likeCount'),

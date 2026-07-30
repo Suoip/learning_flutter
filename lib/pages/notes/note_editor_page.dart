@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../resources_and_services/notes_logic.dart';
 import '../../theme/app_colors.dart';
+import 'pop_on_change.dart';
 
 class NoteEditorPage extends StatefulWidget {
   const NoteEditorPage({
@@ -303,23 +304,29 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
                       IconButton(
                         tooltip: _isFavorite ? 'Unfavorite' : 'Favorite',
                         onPressed: _handleToggleFavorite,
-                        icon: Icon(
-                          _isFavorite
-                              ? Icons.star_rounded
-                              : Icons.star_outline_rounded,
-                          color: _isFavorite
-                              ? AppColors.favoriteAccent
-                              : cs.onSurfaceVariant,
+                        icon: PopOnChange(
+                          active: _isFavorite,
+                          child: Icon(
+                            _isFavorite
+                                ? Icons.star_rounded
+                                : Icons.star_outline_rounded,
+                            color: _isFavorite
+                                ? AppColors.favoriteAccent
+                                : cs.onSurfaceVariant,
+                          ),
                         ),
                       ),
                       IconButton(
                         tooltip: _isPinned ? 'Unpin' : 'Pin',
                         onPressed: _handleTogglePin,
-                        icon: Icon(
-                          _isPinned
-                              ? Icons.push_pin_rounded
-                              : Icons.push_pin_outlined,
-                          color: _isPinned ? cs.primary : cs.onSurfaceVariant,
+                        icon: PopOnChange(
+                          active: _isPinned,
+                          child: Icon(
+                            _isPinned
+                                ? Icons.push_pin_rounded
+                                : Icons.push_pin_outlined,
+                            color: _isPinned ? cs.primary : cs.onSurfaceVariant,
+                          ),
                         ),
                       ),
                       IconButton(
