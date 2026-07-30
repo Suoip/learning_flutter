@@ -1,3 +1,5 @@
+import 'dart:ui' show ImageFilter;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -583,6 +585,7 @@ class _NotesPageState extends State<NotesPage>
 
     return Scaffold(
       backgroundColor: cs.surfaceContainerLowest,
+      extendBody: true,
       appBar: AppBar(
         title: Text(_tabTitles[_selectedIndex]),
         actions: [
@@ -651,47 +654,65 @@ class _NotesPageState extends State<NotesPage>
           ),
         ],
       ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _selectedIndex,
-        onDestinationSelected: (index) {
-          _tabFadeController.forward(from: 0);
-          setState(() {
-            _selectedIndex = index;
-          });
-        },
-        destinations: [
-          const NavigationDestination(
-            icon: Icon(Icons.sticky_note_2_outlined),
-            selectedIcon: Icon(Icons.sticky_note_2_rounded),
-            label: 'Notes',
+      // Frosted rather than opaque - with `extendBody: true` above, the tab
+      // content's gradient background scrolls up underneath this bar and
+      // shows through softly, tying the two together instead of the
+      // gradient just stopping dead at a solid nav bar.
+      bottomNavigationBar: ClipRect(
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              border: Border(
+                top:
+                    BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
+              ),
+            ),
+            child: NavigationBar(
+              backgroundColor: cs.surfaceContainer.withValues(alpha: 0.72),
+              selectedIndex: _selectedIndex,
+              onDestinationSelected: (index) {
+                _tabFadeController.forward(from: 0);
+                setState(() {
+                  _selectedIndex = index;
+                });
+              },
+              destinations: [
+                const NavigationDestination(
+                  icon: Icon(Icons.sticky_note_2_outlined),
+                  selectedIcon: Icon(Icons.sticky_note_2_rounded),
+                  label: 'Notes',
+                ),
+                NavigationDestination(
+                  icon: Badge.count(
+                    count: _unseenFeedCount,
+                    isLabelVisible: _unseenFeedCount > 0,
+                    child: const Icon(Icons.dynamic_feed_outlined),
+                  ),
+                  selectedIcon: Badge.count(
+                    count: _unseenFeedCount,
+                    isLabelVisible: _unseenFeedCount > 0,
+                    child: const Icon(Icons.dynamic_feed_rounded),
+                  ),
+                  label: 'Feed',
+                ),
+                NavigationDestination(
+                  icon: Badge.count(
+                    count: _pendingRequestsCount,
+                    isLabelVisible: _pendingRequestsCount > 0,
+                    child: const Icon(Icons.group_outlined),
+                  ),
+                  selectedIcon: Badge.count(
+                    count: _pendingRequestsCount,
+                    isLabelVisible: _pendingRequestsCount > 0,
+                    child: const Icon(Icons.group_rounded),
+                  ),
+                  label: 'Friends',
+                ),
+              ],
+            ),
           ),
-          NavigationDestination(
-            icon: Badge.count(
-              count: _unseenFeedCount,
-              isLabelVisible: _unseenFeedCount > 0,
-              child: const Icon(Icons.dynamic_feed_outlined),
-            ),
-            selectedIcon: Badge.count(
-              count: _unseenFeedCount,
-              isLabelVisible: _unseenFeedCount > 0,
-              child: const Icon(Icons.dynamic_feed_rounded),
-            ),
-            label: 'Feed',
-          ),
-          NavigationDestination(
-            icon: Badge.count(
-              count: _pendingRequestsCount,
-              isLabelVisible: _pendingRequestsCount > 0,
-              child: const Icon(Icons.group_outlined),
-            ),
-            selectedIcon: Badge.count(
-              count: _pendingRequestsCount,
-              isLabelVisible: _pendingRequestsCount > 0,
-              child: const Icon(Icons.group_rounded),
-            ),
-            label: 'Friends',
-          ),
-        ],
+        ),
       ),
     );
   }
