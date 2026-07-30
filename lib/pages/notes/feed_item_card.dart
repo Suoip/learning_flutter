@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../resources_and_services/notes_logic.dart';
+import 'pop_on_change.dart';
 import 'profile_avatar.dart';
 
 class FeedItemCard extends StatelessWidget {
@@ -74,13 +75,16 @@ class FeedItemCard extends StatelessWidget {
                   IconButton(
                     tooltip: item.isLikedByCurrentUser ? 'Unlike' : 'Like',
                     onPressed: onToggleLike,
-                    icon: Icon(
-                      item.isLikedByCurrentUser
-                          ? Icons.favorite_rounded
-                          : Icons.favorite_border_rounded,
-                      color: item.isLikedByCurrentUser
-                          ? Colors.pink.shade500
-                          : cs.onSurfaceVariant,
+                    icon: PopOnChange(
+                      active: item.isLikedByCurrentUser,
+                      child: Icon(
+                        item.isLikedByCurrentUser
+                            ? Icons.favorite_rounded
+                            : Icons.favorite_border_rounded,
+                        color: item.isLikedByCurrentUser
+                            ? Colors.pink.shade500
+                            : cs.onSurfaceVariant,
+                      ),
                     ),
                   ),
                   Text('${item.likeCount}'),

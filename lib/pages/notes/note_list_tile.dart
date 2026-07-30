@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../resources_and_services/notes_logic.dart';
 import '../../theme/app_colors.dart';
+import 'pop_on_change.dart';
 
 class NoteListTile extends StatelessWidget {
   const NoteListTile({
@@ -82,23 +83,30 @@ class NoteListTile extends StatelessWidget {
                     IconButton(
                       tooltip: note.isFavorite ? 'Unfavorite' : 'Favorite',
                       onPressed: onToggleFavorite,
-                      icon: Icon(
-                        note.isFavorite
-                            ? Icons.star_rounded
-                            : Icons.star_outline_rounded,
-                        color: note.isFavorite
-                            ? AppColors.favoriteAccent
-                            : cs.onSurfaceVariant,
+                      icon: PopOnChange(
+                        active: note.isFavorite,
+                        child: Icon(
+                          note.isFavorite
+                              ? Icons.star_rounded
+                              : Icons.star_outline_rounded,
+                          color: note.isFavorite
+                              ? AppColors.favoriteAccent
+                              : cs.onSurfaceVariant,
+                        ),
                       ),
                     ),
                     IconButton(
                       tooltip: note.isPinned ? 'Unpin' : 'Pin',
                       onPressed: onTogglePin,
-                      icon: Icon(
-                        note.isPinned
-                            ? Icons.push_pin_rounded
-                            : Icons.push_pin_outlined,
-                        color: note.isPinned ? cs.primary : cs.onSurfaceVariant,
+                      icon: PopOnChange(
+                        active: note.isPinned,
+                        child: Icon(
+                          note.isPinned
+                              ? Icons.push_pin_rounded
+                              : Icons.push_pin_outlined,
+                          color:
+                              note.isPinned ? cs.primary : cs.onSurfaceVariant,
+                        ),
                       ),
                     ),
                     PopupMenuButton<String>(
@@ -107,7 +115,13 @@ class NoteListTile extends StatelessWidget {
                         Icons.more_vert,
                         color: cs.onSurfaceVariant,
                       ),
-                      onSelected: (_) => onTogglePublish(),
+                      onSelected: (value) {
+                        if (value == 'delete') {
+                          onDismissed();
+                        } else {
+                          onTogglePublish();
+                        }
+                      },
                       itemBuilder: (context) => [
                         PopupMenuItem(
                           value: 'toggle_publish',
@@ -125,6 +139,21 @@ class NoteListTile extends StatelessWidget {
                               isPublished
                                   ? 'Unpublish from friends'
                                   : 'Publish to friends',
+                            ),
+                          ),
+                        ),
+                        const PopupMenuDivider(),
+                        PopupMenuItem(
+                          value: 'delete',
+                          child: ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            leading: Icon(
+                              Icons.delete_outline_rounded,
+                              color: cs.error,
+                            ),
+                            title: Text(
+                              'Delete',
+                              style: TextStyle(color: cs.error),
                             ),
                           ),
                         ),
