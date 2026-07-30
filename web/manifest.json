@@ -1,11 +1,11 @@
 {
-    "name": "new_project",
-    "short_name": "new_project",
+    "name": "Mini Projects",
+    "short_name": "Mini Projects",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#1E2128",
     "theme_color": "#5865F2",
-    "description": "A new Flutter project.",
+    "description": "A central launchpad for small Flutter projects, including a notes app with social features.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
