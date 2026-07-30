@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../../resources_and_services/notes_logic.dart';
 import 'expandable_text.dart';
+import 'notes_error_banner.dart';
 import 'notes_skeletons.dart';
 import 'pop_on_change.dart';
 import 'profile_avatar.dart';
@@ -241,18 +242,7 @@ class _FeedPostDetailPageState extends State<FeedPostDetailPage> {
             ),
             const SizedBox(height: 10),
             if (_error != null) ...[
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: Colors.red.shade50,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Text(
-                  _error!,
-                  style: TextStyle(color: Colors.red.shade700),
-                ),
-              ),
+              NotesErrorBanner(message: _error!),
               const SizedBox(height: 10),
             ],
             Row(

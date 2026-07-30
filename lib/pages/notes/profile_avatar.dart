@@ -19,6 +19,7 @@ class ProfileAvatar extends StatelessWidget {
         fallbackName.isEmpty ? '?' : fallbackName.substring(0, 1).toUpperCase();
 
     final hasAvatar = (avatarUrl ?? '').isNotEmpty;
+    final cs = Theme.of(context).colorScheme;
 
     return Semantics(
       label: fallbackName.isEmpty
@@ -27,10 +28,16 @@ class ProfileAvatar extends StatelessWidget {
       image: true,
       child: CircleAvatar(
         radius: radius,
+        // Default CircleAvatar without an explicit backgroundColor falls
+        // back to Material's generic grey, clashing against the app's
+        // dark blurple design system - primaryContainer keeps the fallback
+        // initial on-brand for every user without a photo set.
+        backgroundColor: cs.primaryContainer,
         foregroundImage: hasAvatar ? NetworkImage(avatarUrl!) : null,
         child: Text(
           initial,
           style: TextStyle(
+            color: cs.onPrimaryContainer,
             fontWeight: FontWeight.w700,
             fontSize: radius * 0.75,
           ),
