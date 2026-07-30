@@ -509,22 +509,23 @@ class _NotesPageState extends State<NotesPage>
   }
 
   Widget _buildNotesBody(List<NoteItem> notes) {
+    final String stateKey;
+    final Widget child;
     if (_loadingNotes) {
-      return const NotesListSkeleton();
-    }
-
-    if (_notesError != null) {
-      return ListView(
+      stateKey = 'loading';
+      child = const NotesListSkeleton();
+    } else if (_notesError != null) {
+      stateKey = 'error';
+      child = ListView(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(20),
         children: [
           NotesErrorBanner(message: 'Failed to load notes:\n$_notesError'),
         ],
       );
-    }
-
-    if (notes.isEmpty) {
-      return ListView(
+    } else if (notes.isEmpty) {
+      stateKey = 'empty';
+      child = ListView(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(20, 60, 20, 120),
         children: const [
@@ -535,24 +536,30 @@ class _NotesPageState extends State<NotesPage>
           ),
         ],
       );
+    } else {
+      stateKey = 'loaded';
+      child = ListView.separated(
+        padding: const EdgeInsets.fromLTRB(20, 10, 20, 120),
+        itemCount: notes.length,
+        separatorBuilder: (_, __) => const SizedBox(height: 12),
+        itemBuilder: (context, index) {
+          final note = notes[index];
+          return NoteListTile(
+            note: note,
+            isPublished: _publishedNoteIds.contains(note.id),
+            onTap: () => _openNote(note),
+            onToggleFavorite: () => _toggleFavorite(note),
+            onTogglePin: () => _togglePin(note),
+            onTogglePublish: () => _togglePublish(note),
+            onDismissed: () => _deleteNoteWithUndo(note),
+          );
+        },
+      );
     }
 
-    return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(20, 10, 20, 120),
-      itemCount: notes.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 12),
-      itemBuilder: (context, index) {
-        final note = notes[index];
-        return NoteListTile(
-          note: note,
-          isPublished: _publishedNoteIds.contains(note.id),
-          onTap: () => _openNote(note),
-          onToggleFavorite: () => _toggleFavorite(note),
-          onTogglePin: () => _togglePin(note),
-          onTogglePublish: () => _togglePublish(note),
-          onDismissed: () => _deleteNoteWithUndo(note),
-        );
-      },
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 250),
+      child: KeyedSubtree(key: ValueKey(stateKey), child: child),
     );
   }
 

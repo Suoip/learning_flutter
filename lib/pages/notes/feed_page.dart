@@ -126,12 +126,14 @@ class _FeedPageState extends State<FeedPage> {
 
   @override
   Widget build(BuildContext context) {
+    final String stateKey;
+    final Widget child;
     if (_loading) {
-      return const FeedListSkeleton();
-    }
-
-    if (_error != null) {
-      return RefreshIndicator(
+      stateKey = 'loading';
+      child = const FeedListSkeleton();
+    } else if (_error != null) {
+      stateKey = 'error';
+      child = RefreshIndicator(
         onRefresh: _loadFeed,
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
@@ -141,13 +143,19 @@ class _FeedPageState extends State<FeedPage> {
           ],
         ),
       );
+    } else {
+      stateKey = 'loaded';
+      child = FeedTab(
+        feed: _feed,
+        onToggleLike: _toggleLike,
+        onOpenComments: _openPostDetail,
+        onRefresh: _loadFeed,
+      );
     }
 
-    return FeedTab(
-      feed: _feed,
-      onToggleLike: _toggleLike,
-      onOpenComments: _openPostDetail,
-      onRefresh: _loadFeed,
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 250),
+      child: KeyedSubtree(key: ValueKey(stateKey), child: child),
     );
   }
 }
