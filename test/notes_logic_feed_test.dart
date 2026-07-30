@@ -354,6 +354,72 @@ void main() {
       });
     });
 
+    group('fetchFeedLikers', () {
+      test('returns likers with profile, in like order', () async {
+        feedDataSource.likes.addAll([
+          {
+            'shared_note_id': 'shared-1',
+            'user_id': 'user-2',
+            'created_at': '2024-01-01T00:00:00.000Z',
+          },
+          {
+            'shared_note_id': 'shared-1',
+            'user_id': 'user-1',
+            'created_at': '2024-01-02T00:00:00.000Z',
+          },
+        ]);
+
+        final likers = await logic.fetchFeedLikers('shared-1');
+
+        expect(likers.map((l) => l.username), ['bob', 'alice']);
+      });
+
+      test('falls back to "unknown" for a liker with no resolvable profile',
+          () async {
+        feedDataSource.likes.add({
+          'shared_note_id': 'shared-1',
+          'user_id': 'user-3',
+          'created_at': '2024-01-01T00:00:00.000Z',
+        });
+
+        final likers = await logic.fetchFeedLikers('shared-1');
+
+        expect(likers.single.username, 'unknown');
+      });
+    });
+
+    group('fetchMutualFriendCount', () {
+      test('counts friends in common with another user', () async {
+        await friendsDataSource.upsertFriendship(
+          lowId: 'user-1',
+          highId: 'user-2',
+        );
+        await friendsDataSource.upsertFriendship(
+          lowId: 'user-1',
+          highId: 'user-3',
+        );
+        await friendsDataSource.upsertFriendship(
+          lowId: 'user-2',
+          highId: 'user-3',
+        );
+        await friendsDataSource.upsertFriendship(
+          lowId: 'user-3',
+          highId: 'user-4',
+        );
+
+        // user-1's friends: user-2, user-3. user-4's friends: user-3.
+        // Common: user-3 -> count 1.
+        final count = await logic.fetchMutualFriendCount('user-4');
+
+        expect(count, 1);
+      });
+
+      test('returns 0 when there are no friends in common', () async {
+        final count = await logic.fetchMutualFriendCount('user-2');
+        expect(count, 0);
+      });
+    });
+
     group('fetchFeedLastSeenAt', () {
       test('returns null when signed out', () async {
         feedDataSource.currentUserId = null;

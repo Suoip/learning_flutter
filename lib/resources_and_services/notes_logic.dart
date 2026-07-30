@@ -204,6 +204,21 @@ class FeedCommentItem {
   final DateTime createdAt;
 }
 
+/// One row in a shared note's "liked by" list.
+class FeedLikerItem {
+  const FeedLikerItem({
+    required this.userId,
+    required this.username,
+    required this.avatarUrl,
+    required this.likedAt,
+  });
+
+  final String userId;
+  final String username;
+  final String? avatarUrl;
+  final DateTime likedAt;
+}
+
 class NotesLogic {
   NotesLogic({
     SupabaseClient? client,
@@ -1115,6 +1130,30 @@ class NotesLogic {
         userId: userId,
       );
     }
+  }
+
+  Future<List<FeedLikerItem>> fetchFeedLikers(String sharedNoteId) async {
+    final rows = await _feedDataSource.selectLikesForSharedNote(sharedNoteId);
+    final userIds = rows.map((e) => e['user_id'].toString()).toSet().toList();
+    final profiles = await _loadProfiles(userIds);
+
+    return rows.map((row) {
+      final userId = row['user_id'].toString();
+      final profile = profiles[userId];
+      return FeedLikerItem(
+        userId: userId,
+        username: profile?.username ?? 'unknown',
+        avatarUrl: profile?.avatarUrl,
+        likedAt: parseTimestamp(row['created_at']),
+      );
+    }).toList();
+  }
+
+  /// How many friends the current user has in common with [otherUserId] -
+  /// see [FriendsDataSource.selectMutualFriendCount] for why this can't be
+  /// computed client-side from `fetchFriends()` alone.
+  Future<int> fetchMutualFriendCount(String otherUserId) {
+    return _friendsDataSource.selectMutualFriendCount(otherUserId);
   }
 
   Future<List<FeedCommentItem>> fetchFeedComments(String sharedNoteId) async {

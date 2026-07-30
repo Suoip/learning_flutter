@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../../resources_and_services/notes_logic.dart';
 import 'feed_post_detail_page.dart';
 import 'feed_tab.dart';
+import 'liked_by_sheet.dart';
 import 'notes_error_banner.dart';
 import 'notes_skeletons.dart';
 
@@ -111,6 +112,10 @@ class _FeedPageState extends State<FeedPage> {
     }
   }
 
+  void _openLikedBy(SharedNoteFeedItem item) {
+    showLikedBySheet(context, logic: _logic, sharedNoteId: item.id);
+  }
+
   Future<void> _openPostDetail(SharedNoteFeedItem item) async {
     await Navigator.of(context).push(
       MaterialPageRoute(
@@ -149,6 +154,7 @@ class _FeedPageState extends State<FeedPage> {
         feed: _feed,
         onToggleLike: _toggleLike,
         onOpenComments: _openPostDetail,
+        onOpenLikedBy: _openLikedBy,
         onRefresh: _loadFeed,
       );
     }

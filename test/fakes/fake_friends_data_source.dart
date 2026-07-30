@@ -154,4 +154,27 @@ class FakeFriendsDataSource implements FriendsDataSource {
             (row) => row['receiver_id'] == userId && row['status'] == 'pending')
         .length;
   }
+
+  Set<String> _friendIdsOf(String userId) {
+    return friendships
+        .where(
+          (row) =>
+              row['user_low_id'] == userId || row['user_high_id'] == userId,
+        )
+        .map(
+          (row) => (row['user_low_id'] == userId
+                  ? row['user_high_id']
+                  : row['user_low_id'])
+              .toString(),
+        )
+        .toSet();
+  }
+
+  @override
+  Future<int> selectMutualFriendCount(String otherUserId) async {
+    if (currentUserId == null) return 0;
+    final mine = _friendIdsOf(currentUserId!);
+    final theirs = _friendIdsOf(otherUserId);
+    return mine.intersection(theirs).length;
+  }
 }

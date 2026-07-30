@@ -45,6 +45,14 @@ abstract class FeedDataSource {
     List<String> ids,
   );
 
+  /// Rows for one shared note's likers (`user_id`, `created_at`), for the
+  /// "liked by" list - as opposed to [selectLikesForSharedNoteIds], which
+  /// returns bare `shared_note_id`/`user_id` pairs across many notes for
+  /// aggregate counts.
+  Future<List<Map<String, dynamic>>> selectLikesForSharedNote(
+    String sharedNoteId,
+  );
+
   Future<Map<String, dynamic>?> selectLike({
     required String sharedNoteId,
     required String userId,
@@ -190,6 +198,18 @@ class SupabaseFeedDataSource implements FeedDataSource {
         .from(_likesTable)
         .select('shared_note_id,user_id')
         .inFilter('shared_note_id', ids);
+    return (rows as List<dynamic>).cast<Map<String, dynamic>>();
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> selectLikesForSharedNote(
+    String sharedNoteId,
+  ) async {
+    final rows = await _client
+        .from(_likesTable)
+        .select('user_id,created_at')
+        .eq('shared_note_id', sharedNoteId)
+        .order('created_at');
     return (rows as List<dynamic>).cast<Map<String, dynamic>>();
   }
 

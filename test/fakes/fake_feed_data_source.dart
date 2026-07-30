@@ -128,6 +128,21 @@ class FakeFeedDataSource implements FeedDataSource {
   }
 
   @override
+  Future<List<Map<String, dynamic>>> selectLikesForSharedNote(
+    String sharedNoteId,
+  ) async {
+    final matches = likes
+        .where((row) => row['shared_note_id'] == sharedNoteId)
+        .map((row) => Map<String, dynamic>.from(row))
+        .toList()
+      ..sort(
+        (a, b) =>
+            (a['created_at'] as String).compareTo(b['created_at'] as String),
+      );
+    return matches;
+  }
+
+  @override
   Future<Map<String, dynamic>?> selectLike({
     required String sharedNoteId,
     required String userId,
