@@ -593,7 +593,13 @@ class _NotesPageState extends State<NotesPage>
       backgroundColor: cs.surfaceContainerLowest,
       extendBody: true,
       appBar: AppBar(
-        title: Text(_tabTitles[_selectedIndex]),
+        title: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 200),
+          child: Text(
+            _tabTitles[_selectedIndex],
+            key: ValueKey(_selectedIndex),
+          ),
+        ),
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 4),

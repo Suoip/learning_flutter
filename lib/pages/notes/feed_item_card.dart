@@ -87,7 +87,13 @@ class FeedItemCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                  Text('${item.likeCount}'),
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 200),
+                    child: Text(
+                      '${item.likeCount}',
+                      key: ValueKey(item.likeCount),
+                    ),
+                  ),
                   const SizedBox(width: 10),
                   IconButton(
                     tooltip: 'Comments',
