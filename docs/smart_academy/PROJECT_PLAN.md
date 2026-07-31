@@ -164,8 +164,12 @@ the items below are the known candidates, not a committed order:
 
 1. **Real video upload/playback** — the largest remaining gap (see §5.2, §9).
 2. Pagination for the hub once content volume warrants it.
-3. Revisit the Notes UI redesign initiative in parallel (separate from SmartAcademy, but shares
-   the app's theme system) — only the Notes list screen is migrated to the new dark theme so far.
+3. SmartAcademy already inherits the same base dark theme colors/typography as Notes (the theme is
+   applied globally at the `MaterialApp` root, not per-feature), but has none of the loading-
+   skeleton/crossfade/spring-pop motion language Notes built up across its own UI-polish initiative,
+   now fully shipped (see [../notes/PROJECT_PLAN.md](../notes/PROJECT_PLAN.md)). Bringing that same
+   motion language to SmartAcademy is a candidate worth considering on its own merits, not blocked
+   on anything in Notes being incomplete anymore.
 4. Any of the "not planned" items in §6 (comment editing, notifications, follow/subscribe) if
    priorities change.
 

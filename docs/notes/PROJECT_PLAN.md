@@ -1,14 +1,18 @@
 # Notes App — Project Plan
 
-**Status:** Retroactive pre-project plan, written after extensive development (PR #1–#28+) to
-formalize direction for everything ahead. Where this doc describes something already shipped,
-that's noted explicitly — treat those sections as "confirm this is still true" rather than
-"design from scratch."
+**Status:** Retroactive project plan, most recently refreshed after PR #57 (2026-07-30). Where this
+doc describes something already shipped, that's noted explicitly — treat those sections as
+"confirm this is still true" rather than "design from scratch." This revision adds product-level
+sections (vision, UX analysis, competitive landscape) and a formal, three-tier acceptance-criteria
+framework (page / module / project) that didn't exist in earlier drafts, on top of refreshing every
+part of the spec that had gone stale across the PR #30–#57 UI-overhaul and feature arc.
 
 This document is written to be **fully self-contained**: Part I is the high-level plan (vision,
-goals, roadmap); Part II is an exhaustive specification of every screen, field, validation rule,
-data table, and business rule, detailed enough that someone who has never opened the codebase
-could understand exactly how the app behaves.
+UX thinking, competitive context, goals, scope, roadmap); Part II is an exhaustive specification of
+every screen, field, validation rule, data table, and business rule; Part III inventories every
+page as a product artifact (purpose, content, user actions, acceptance criteria); Part IV states
+what "done" means at the module and whole-project level; Part V walks through worked end-to-end
+flows.
 
 ---
 
@@ -16,125 +20,222 @@ could understand exactly how the app behaves.
 
 ## 1. Vision
 
-Notes is the flagship mini-project in the `learning_flutter` app: a personal note-taking app with
-a social layer. A user writes private notes, organizes them (pin/favorite), and can optionally
-publish a note to share with friends — who can then like and comment on it, feed-style. It's the
-original project the rest of the app's engineering patterns (testable business logic via a
-`*Logic` + `*DataSource` pair, Supabase auth/RLS conventions, the dark theme system) were
-established on, and later reused by SmartAcademy.
+Notes is the flagship mini-project in the `learning_flutter` app (user-facing app name: **Mini
+Projects**, see §12): a personal note-taking app with a social layer built on top of it. At its
+best, Notes should feel like two honest things stitched together, not compromised by each other —
+
+- **A fast, trustworthy private notebook.** Writing, organizing (pin/favorite), and finding a note
+  again should never feel slower or less reliable than reaching for a plain-text file. Nothing
+  about the social layer should tax the private-notes experience.
+- **A small, deliberate act of sharing.** Publishing a note is a conscious, visible, reversible
+  choice — not an ambient broadcast. The friend graph is closed (mutual, request-based) rather than
+  a public follow model, and every published note is visible only to the exact set of people who
+  were your friends at publish time.
+
+It's also the original project the rest of the `learning_flutter` app's engineering patterns were
+established on — the testable `*Logic` + `*DataSource` pair, Supabase auth/RLS conventions, the
+dark "playful & rounded" theme system, the skeleton-loading/crossfade/haptic motion language — and
+later reused (Notes' patterns first, SmartAcademy's variations second) across the rest of the app.
 
 ## 2. Problem / motivation
 
 This is a learning repo — the motivation is to practice building a realistic full-stack CRUD app
-with auth, authorization, and a social graph (friends, shared content, engagement) on top of
-Supabase, and to keep it maintainable as it grows through many small, sequential PRs. There is no
-external user base; scope and sequencing are driven by what's useful to build and learn next,
-decided collaboratively PR by PR, informed by periodic feature audits of what a real user would
-expect.
+with auth, authorization, a social graph, and real product-design decision-making (not just
+backend plumbing) on top of Supabase, and to keep it maintainable as it grows through many small,
+sequential PRs. There is no external user base; scope and sequencing are driven by what's useful to
+build and learn next, decided collaboratively PR by PR, informed by periodic feature/UX audits of
+what a real user would expect.
 
-## 3. Goals
+## 3. UX principles & analysis
+
+This section is a retrospective, honest self-assessment of the shipped product against standard
+usability heuristics (Nielsen's) and this project's own stated design values — not a marketing
+pitch. Graded qualitatively, since there's no analytics/user-testing pipeline on a project with no
+external users.
+
+| Heuristic | Where it's strong | Where it's still weak |
+|---|---|---|
+| **Visibility of system status** | Every list has a loading skeleton shaped like its real content, not a bare spinner (PR #47); a "Saved"/"Unsaved changes" pill in the editor (§7.4 of the UI plan); an unseen-post badge on the Feed tab. | The feed's hard 100-item cap is invisible to the user — nothing tells them older posts exist but aren't shown (§10, risks). |
+| **Match between system and the real world** | "Liked by," "mutual friends," "Friends"/"Requested"/"Add Friend" labels all use plain, familiar social-app vocabulary rather than database terms (no "recipient," "shared_note," etc. ever surface in UI copy). | — |
+| **User control and freedom** | Delete-then-undo-snackbar (not an immediate, final delete) for the common case; cancel a sent friend request; unpublish a note at any time. | Comments can't be edited or deleted once posted (§7.2, a tracked gap) — a real "no way back" spot. |
+| **Consistency and standards** | One shared `NotesErrorBanner`, one shared `NotesEmptyState`, one shared `PopOnChange` bounce, one shared `AnimatedSwitcher`/`AnimatedSize` crossfade idiom reused everywhere a value or section appears/disappears — an explicit, repeated engineering convention, not one-off animations per screen. | — |
+| **Error prevention** | The friend-status button (Friends tick / Requested / Add Friend) prevents ever showing an actionable "Add" control for someone already a friend or already pending — a real error (a redundant/rejected request) is prevented at the UI layer instead of just being handled gracefully after the fact. | Publishing is still all-or-nothing to every current friend with no way to preview/exclude specific people beforehand (only a post-hoc confirmation listing who it'll reach). |
+| **Recognition rather than recall** | The "liked by" list surfaces mutual-friend counts so a user can recognize a potential connection without having to recall their own friend list from memory; likewise the friend-status button removes the need to remember who you've already requested. | — |
+| **Aesthetic and minimalist design** | One accent color (`#5865F2`) used consistently everywhere status/emphasis is needed (favorite gold is the one deliberate, justified exception — "star = gold" is too strong a convention to break); no competing visual systems across screens. | — |
+| **Help users recognize, diagnose, and recover from errors** | A single central error-humanizer (`userMessageForError`, §14.9) translates every raw Supabase/Postgrest error into a specific, actionable message — this was iterated on more than once after real bugs surfaced (e.g. the same-password/wrong-password message collision). | — |
+
+**Motion as a UX tool, not decoration.** A deliberate, repeated pattern across the PR #47–#56 arc:
+every state transition that used to *snap* (a badge appearing, a pill swapping text, a list
+reordering, a value changing) was identified and given a short (200–300ms), purposeful animation —
+either reinforcing that a state genuinely changed (the `PopOnChange` bounce on becoming liked/
+favorited/pinned) or smoothing a layout change that would otherwise read as a jump cut
+(`AnimatedSize` on a conditionally-appearing pill or section). This was treated as a UX correctness
+concern, not a cosmetic one — the working rule adopted mid-project: *if a value can change while a
+screen is visible, its appearance/disappearance/reordering should never be an instant cut.*
+
+## 4. Competitive landscape
+
+Honest positioning, not a pitch: Notes doesn't compete head-on with any single existing product —
+it sits at an intersection nothing mainstream directly occupies, which is either a genuine (if
+niche) angle or evidence of why nobody's built it at scale. Both readings are worth holding at
+once for a learning project.
+
+| Product | Private notes | Organize (pin/favorite/search) | Closed friend-graph | Publish/share content | Like/comment engagement | Discover mutual connections |
+|---|---|---|---|---|---|---|
+| **Google Keep / Apple Notes** | ✅ | ✅ (labels, pins) | ❌ (link-share only, no graph) | ⚠️ link-sharing, not a feed | ❌ | ❌ |
+| **Notion** | ✅ (much richer) | ✅ | ⚠️ (workspace members, not a personal friend graph) | ⚠️ (page sharing/publishing) | ❌ | ❌ |
+| **Instagram Close Friends / BeReal** | ❌ (not note-taking) | ❌ | ✅ | ✅ (feed-style) | ✅ | ⚠️ (not framed around mutuals) |
+| **This app (Notes)** | ✅ | ✅ | ✅ (mutual, request-based) | ✅ (to your whole friend graph) | ✅ (likes + comments) | ✅ (mutual-friend count + one-tap add, PR #57) |
+
+**Takeaways used to inform scope decisions:**
+- The pure-notes apps (Keep/Notes/Notion) are unambiguously more mature at the *notes* half of the
+  product — richer formatting, attachments, multi-device sync polish. Notes deliberately doesn't
+  compete there (see Non-goals, §5) — plain text only, by design, not by current limitation.
+- The social-feed apps (BeReal/Close Friends) are more mature at *engagement* at scale (stories,
+  reactions beyond like/comment, notifications). Notes' explicit non-goal of push notifications
+  (§5) is a real, current gap relative to that category, not a stylistic choice.
+- **The mutual-friend-discovery angle (PR #57) is closer to what a friend-graph product like
+  Facebook popularized than anything a notes app typically does** — deliberately borrowed because
+  it directly serves this app's actual differentiator (a real, closed friend graph), rather than
+  imitating a notes competitor's feature for its own sake.
+
+## 5. Goals
 
 - Let a user register, log in, and manage their own private notes (create/edit/delete, pin,
-  favorite, search/filter).
-- Let a user build a friend graph: send/accept/decline/cancel requests, unfriend.
+  favorite, search by title or content).
+- Let a user build a friend graph: send/accept/decline/cancel requests, unfriend, and discover new
+  connections via mutual friends surfaced through shared engagement (who liked a post you can see).
 - Let a user publish a note to share with all their friends, and see a combined feed of their own
   and friends' published notes.
-- Let feed participants like and comment on published notes.
+- Let feed participants like and comment on published notes, and see who liked a given post.
 - Support the full account lifecycle: signup with email confirmation, forgot/reset password,
   username/avatar/password changes.
+- Present a cohesive, animated, on-brand dark UI across every screen — not just the notes list.
 - Work correctly on both web and mobile (Android), including email deep-link flows.
 
 ### Non-goals (for now)
 
 - Rich text / attachments / images inside notes (plain text only).
 - Real-time (live) feed or comment updates — data is fetched, not subscribed.
-- Comment editing or deletion.
-- Notifications for new likes/comments/friend requests beyond the incoming-friend-request badge.
+- Rich comment features beyond plain text (threading, reactions beyond like/comment). Basic
+  edit/delete of your own comment is *not* a non-goal — it's a tracked gap, see §7.2/§11.
+- Push notifications for new likes/comments/friend requests beyond in-app badges.
 - Account deletion (self-service).
 - Public/discoverable notes beyond the friends-only feed (no global public feed, unlike
   SmartAcademy's hub model).
 - Choosing a subset of friends to publish to — publishing always targets *all* current friends.
+- Light theme / theme toggle — the app is dark-only by design (§12).
+- Desktop/wide-viewport-optimized layout — explicitly deferred twice (UI plan §7.1/§8); mobile is
+  the confirmed primary target, web exists for faster local development only.
 
-## 4. Target users
+## 6. Target users
 
 | Persona | Description | Needs |
 |---|---|---|
-| **Note-taker** | The default use case — someone using Notes purely privately. | Fast, reliable CRUD; pin/favorite/search to manage a growing list; never lose a note. |
-| **Social publisher** | A note-taker who shares some notes with friends. | One-step publish, confidence that only friends see it, visibility into engagement on their own posts. |
-| **Feed participant** | Anyone with friends who've published notes. | A combined feed (not fragmented per-friend), like/comment, manage the friend graph itself. |
+| **Note-taker** | The default use case — someone using Notes purely privately. | Fast, reliable CRUD; pin/favorite/search to manage a growing list; never lose a note; autosave so nothing is lost to a forgotten manual save. |
+| **Social publisher** | A note-taker who shares some notes with friends. | One-step publish, confidence that only friends see it (reinforced by a pre-publish confirmation listing recipients), visibility into engagement (likes/comments/who-liked) on their own posts. |
+| **Feed participant** | Anyone with friends who've published notes. | A combined feed (not fragmented per-friend), like/comment, see who else liked something, manage the friend graph itself, discover new mutual connections without manually cross-referencing friend lists. |
 
-## 5. Scope
+## 7. Scope
 
-### 5.1 In scope, already shipped
+### 7.1 In scope, shipped
 
 - **Auth** — signup with username, email confirmation, login, self-service forgot/reset password
-  (web and, unverified, Android deep links), sign-out, resend confirmation email.
-- **Notes CRUD** — create/edit/delete, pin, favorite, search/filter (title only), backed by a
-  testable `NotesDataSource`.
-- **Profile** — username, avatar upload, password change.
-- **Friends** — search by username, send request, accept/decline, cancel a sent request,
-  unfriend, full duplicate/self-request/already-friends guard rails, incoming-request count badge.
-- **Publishing & feed** — publish a note to all friends at once (one row per note, not one per
-  recipient — redesigned in PR #13 to fix a duplication bug), a combined feed showing both your
-  own and friends' published notes with "You" labeling for your own.
-- **Engagement** — likes and comments on published/shared notes, inline display via a bottom
-  sheet.
-- **Dark theme** (Discord/Telegram-inspired design system) — applied app-wide; only the notes
-  list screen itself has been fully migrated onto it so far.
+  (web and, unverified on real hardware, Android deep links), sign-out, resend confirmation email,
+  password-visibility toggles on every password field.
+- **Notes CRUD** — create/edit/delete (delete via swipe-with-undo-snackbar *or* an overflow-menu
+  item, PR #38/#51), pin, favorite, search/filter by **title or content** (PR #36), autosave while
+  typing (1.5s debounce), live word/character count, backed by a testable `NotesDataSource`.
+  Deleting from the overflow menu and swiping both funnel through the same delete-with-undo logic.
+- **Profile** — username, avatar upload (crossfades on change, PR #55), password change.
+- **Friends** — search by username, send request, accept/decline, cancel a sent request, unfriend,
+  full duplicate/self-request/already-friends guard rails, incoming-request count badge, and a
+  three-state **friend-status button** (Friends / Requested / Add Friend, PR #57) on every person
+  row so search results never show a misleadingly-actionable "Add" for someone already connected or
+  already pending.
+- **Publishing & feed** — publish a note to all friends at once with a pre-publish confirmation
+  dialog listing recipients (PR #37), a combined feed showing both your own and friends' published
+  notes with "You" labeling for your own, an unseen-post count badge on the Feed nav destination
+  (PR #39).
+- **Engagement** — likes and comments on published/shared notes, shown on a dedicated post-detail
+  page (not a modal sheet, PR #35); a **"liked by" panel** (PR #57) listing everyone who liked a
+  post — you first if you liked it too, then friends, then everyone else with a mutual-friend count
+  and a one-tap "Add Friend."
+- **Navigation & shell** — persistent bottom nav (Notes/Feed/Friends), persistent Profile icon,
+  per-tab state preservation via `IndexedStack`, a frosted/translucent nav bar with the tab
+  content's background gradient showing through (PR #51).
+- **Visual/motion design system** — a full dark "playful & rounded" theme applied to *every* Notes
+  screen (not just the list, superseding earlier partial-rollout status), a custom app icon and
+  matching dark native splash screens on every platform (PR #49/#53), the app renamed from the
+  Flutter-template default to **Mini Projects** everywhere it's user-visible (PR #53/#54), skeleton
+  loading states on every data-driven screen, and a consistent crossfade/bounce/stagger motion
+  language covering every conditionally-appearing element in the feature (PRs #47–#56).
 - **Testing infrastructure** — the `NotesDataSource` pattern (Notes → Profiles → Friends → Feed →
-  Auth) is complete across all five logic domains, ~300+ unit tests total using fakes.
+  Auth) is complete across all five logic domains, 300+ unit tests total using fakes.
 
-### 5.2 In scope, not yet started / known gaps
+### 7.2 In scope, not yet started / known gaps
 
-- **View another user's profile** — tapping a friend's avatar currently does nothing. Identified
-  as the next social feature to build (from a full feature audit before PR #9), not yet started.
+- **View another user's profile** — tapping a friend's avatar (or a liker's row in the "liked by"
+  list) currently does nothing beyond the friend-status button. Identified as the next social
+  feature to build since a feature audit before PR #9, still not started as of PR #57.
 - **Edit/delete your own posted comments** — no path exists today, at either the UI or the RLS
   layer beyond a raw delete policy (`shared_note_comments_delete_self` exists at the DB level, but
   no UI calls it).
-- **Search notes by content**, not just title.
+- **Feed pagination** — the feed is hard-capped at the 100 most recent items with no "load more" —
+  flagged repeatedly in past audits, never picked up, low urgency at current usage scale.
 - **Self-service account deletion.**
 - **Notifications for new likes/comments** on your own published notes (only the friend-request
-  badge exists).
+  badge and unseen-feed-post badge exist — nothing surfaces "someone liked/commented on your post"
+  outside of opening that post's "liked by" list or comments yourself).
 - **Choosing which friends to publish to** — currently all-or-nothing.
-- **Verify PR #15's Android deep-link fix on a real device/emulator** — implemented but never
-  actually tested on Android hardware; also confirm the mobile redirect URL is registered in the
-  Supabase dashboard's allow-list.
-- **UI redesign rollout** — the dark theme system exists and covers every component type Notes
-  uses, but only the notes-list screen has been migrated; editor, social/feed/friends, and
-  profile/auth screens are still on old, partly-hardcoded styling.
-- **`updateUsername`/`uploadProfileAvatar` full-path unit test coverage** — only their
-  signed-out/invalid-input guard clauses are unit-tested today; the real Supabase-touching paths
-  are integration-tested only (a deliberate, accepted gap, not an oversight).
+- **Batched/optimized mutual-friend-count fetching** — currently one RPC call per non-friend row in
+  the "liked by" list; fine at this app's real scale (a handful of likers), would need revisiting
+  if like counts ever grew into the hundreds.
+- **Verify PR #15's Android deep-link fix, and PR #49's Android/iOS native splash/icon, on a real
+  device/emulator** — all implemented but never actually tested on real Android/iOS hardware; no
+  SDK/emulator or Mac available in this dev environment.
+- **`updateUsername`/`uploadProfileAvatar` full-path unit test coverage** — only their signed-out/
+  invalid-input guard clauses are unit-tested today; the real Supabase-touching paths are
+  integration-tested only (a deliberate, accepted gap, not an oversight).
 
-### 5.3 Explicitly out of scope
+### 7.3 Explicitly out of scope
 
-See Non-goals (§3). Additionally not planned: rich content, real-time sync, a public/global feed,
-or comment moderation.
+See Non-goals (§5). Additionally not planned: rich content, real-time sync, a public/global feed,
+comment moderation, a desktop-optimized layout, or a light theme.
 
-## 6. Feature breakdown
+## 8. Feature breakdown
 
 | Area | Capability | Status |
 |---|---|---|
 | Auth | Signup / login / email confirmation | ✅ Shipped |
 | Auth | Forgot/reset password (web) | ✅ Shipped |
 | Auth | Forgot/reset password (Android deep link) | ⚠️ Implemented, unverified on real hardware |
-| Profile | Avatar, username, password | ✅ Shipped |
+| Auth | Password visibility toggle (all fields) | ✅ Shipped |
+| Profile | Avatar (crossfades on change), username, password | ✅ Shipped |
 | Profile | View another user's profile | ⬜ Not started |
 | Notes | CRUD, pin, favorite | ✅ Shipped |
-| Notes | Search by title | ✅ Shipped |
-| Notes | Search by content | ⬜ Not started |
+| Notes | Search by title or content | ✅ Shipped |
+| Notes | Delete via swipe-undo *and* overflow menu | ✅ Shipped |
+| Notes | Autosave + live word/character count | ✅ Shipped |
 | Friends | Search / send / accept / decline / cancel / unfriend | ✅ Shipped |
+| Friends | Friend-status button (Friends/Requested/Add) everywhere a person row appears | ✅ Shipped |
 | Feed | Combined own + friends' published notes | ✅ Shipped |
-| Feed | Likes | ✅ Shipped |
-| Feed | Comments (bottom-sheet) | ✅ Shipped |
-| Feed | Comment edit/delete | ⬜ Not started |
+| Feed | Unseen-post count badge | ✅ Shipped |
+| Feed | Pagination beyond 100 items | ⬜ Not started |
+| Engagement | Likes, comments (dedicated detail page) | ✅ Shipped |
+| Engagement | "Liked by" list | ✅ Shipped |
+| Engagement | Mutual-friend discovery from likers | ✅ Shipped |
+| Engagement | Comment edit/delete | ⬜ Not started |
 | Feed | Selective (not all-friends) publish | ⬜ Not started |
-| Growth | Notifications (likes/comments) | ⬜ Not planned yet |
+| Growth | Push notifications (likes/comments) | ⬜ Not planned yet |
 | Growth | Account deletion | ⬜ Not planned yet |
-| UI | Dark theme system built | ✅ Shipped |
-| UI | Dark theme rollout (editor/social/profile/auth) | ⬜ Partial — list screen only |
+| UI/Motion | Dark theme, full rollout across every screen | ✅ Shipped |
+| UI/Motion | Skeleton loading, crossfades, bounces, staggered lists | ✅ Shipped |
+| UI/Motion | Frosted/translucent bottom nav | ✅ Shipped |
+| Branding | Custom app icon + name ("Mini Projects") + dark splash | ✅ Shipped |
+| UI/Motion | Desktop/wide-viewport layout | ⬜ Deferred, not planned |
 
-## 7. Key decisions already made (and why)
+## 9. Key decisions already made (and why)
 
 - **One `shared_notes` row per published note, not per recipient** — the original per-recipient
   model made the poster unable to see engagement on their own post and would have shown
@@ -149,56 +250,58 @@ or comment moderation.
   `shouldRejectSignIn`) was worth isolating into pure, testable functions.
 - **Error messages match on Supabase's stable `code` field where possible, not message text** — a
   prior bug (same-password changes showing "Incorrect email or password") came from matching on
-  message substrings; message text isn't a stable contract, error codes are (see the
-  `same_password` special-case in `userMessageForError`).
+  message substrings; message text isn't a stable contract, error codes are.
 - **Global dark theme applied at the MaterialApp root**, not scoped to Notes' navigator subtree —
   because `ResetPasswordPage` is pushed directly onto the root navigator for the password-recovery
   deep link, bypassing Notes' own navigation stack; a scoped theme override would've left that
   screen unthemed.
-- **`SECURITY DEFINER` helper function for recipient-visibility RLS** — `is_shared_note_author()`
-  exists purely to avoid a circular RLS reference (a recipients-select policy that needs to check
-  "is this user the note's author" without triggering infinite recursion through `shared_notes`'
-  own RLS).
+- **`SECURITY DEFINER` helper functions for RLS that needs to bypass its own table's policy** —
+  `is_shared_note_author()` avoids a circular RLS reference; the same idiom was reused for
+  `mutual_friend_count()` (§13.6), which must read another user's `friendships` rows (RLS otherwise
+  restricts every user to seeing only their own).
+- **Mutual-friend counting is a scalar RPC, called once per row, not batched** — validated via a
+  dedicated Plan-agent review before implementation (PR #57); at this app's real scale a "liked by"
+  list has a handful of rows, so simplicity/reviewability of the SQL won out over the added
+  complexity of an array+`unnest` batched version.
+- **Motion/animation conventions are shared widgets, not one-off code per screen** — `PopOnChange`
+  (spring-pop on becoming active), `StaggeredListItem` (fade+slide entrance keyed by item id, not
+  index, so reordering doesn't replay/skip the wrong item's animation), and a repeated
+  `AnimatedSize`/`AnimatedSwitcher` idiom for conditionally-appearing content — chosen specifically
+  so new screens reuse the same few primitives instead of inventing new animation code each time.
 - **Publishing always targets the entire friends list**, not a chosen subset — simpler model,
   accepted as a real limitation (see backlog).
 - **Password-reset error messages are deliberately non-revealing** — `sendPasswordResetEmail`
   always appears to succeed, regardless of whether the email is registered, to avoid leaking
   account existence.
+- **App renamed and re-iconed at the display layer only** — `pubspec.yaml`'s `name: new_project`
+  (the Dart package identifier used in every `import 'package:new_project/...'`) was deliberately
+  left untouched when the app was renamed to "Mini Projects" (PR #53); renaming the package
+  identifier would touch every import statement in the codebase for a purely cosmetic, user-facing
+  change, which wasn't worth the blast radius.
 
-## 8. Risks & open questions
+## 10. Risks & open questions
 
 | Risk / question | Notes |
 |---|---|
-| Android deep-link flow unverified | No Android SDK/emulator available in the current dev environment; treat as implemented-but-unverified until tested on real hardware. |
-| RLS bugs aren't caught by unit tests | Already happened once (PR #13's author-can't-see-own-shared-recipient-row bug) — only live testing surfaced it. Any new INSERT/UPDATE policy on a table an author needs to read back should be sanity-checked live, not just reviewed. |
-| UI redesign is partial | Users see visibly inconsistent styling across notes screens until the rollout (editor → social/feed/friends → profile/auth) is finished; no timeline forces this, but it's a known rough edge. |
-| No content search | Users with many notes can only search by title; may become a real usability gap as note counts grow. |
+| Android/iOS native polish unverified | Deep links (PR #15), native splash screens, and the app icon (PR #49/#53) are all implemented but never tested on real Android/iOS hardware — no SDK/emulator or Mac available in this dev environment. |
+| RLS bugs aren't caught by unit tests | Already happened once (PR #13's author-can't-see-own-shared-recipient-row bug) — only live testing surfaced it. Any new INSERT/UPDATE policy, or new RPC like `mutual_friend_count`, should be sanity-checked live, not just reviewed. |
+| No feed pagination | Users with very active friend graphs only ever see the 100 most recent posts, with no signal that older ones exist or a way to reach them. Not urgent at current usage scale. |
+| No content-search relevance ranking | Search matches title or content, but has no ranking/highlighting — a very long note matching once may not surface as prominently as a short one matching in the title. Not a known complaint yet, just an unexamined assumption. |
 | Recipient insert has no DB-level friend check | `shared_note_recipients_insert_author` only verifies the inserter authored the shared note — it does *not* re-verify recipients are actually friends at the DB layer (an earlier check was removed while debugging the PR #13 RLS recursion issue). The only gate on "who can be a recipient" today is the app's own `fetchFriends()`-driven UI. Not currently exploitable through the app's own UI, but worth knowing if a new write path to `shared_note_recipients` is ever added. |
+| Mutual-friend RPC is per-row, not batched | A "liked by" list with many non-friend likers makes that many sequential round-trips. Accepted at current scale (see §9); would need a batched `unnest`-based version if like counts ever grew large. |
+| No automated visual/animation regression testing | The entire PR #47–#56 motion-language rollout was verified by hand in a browser preview each time (the Browser pane's screenshot tool has a known, unresolved intermittent "pane not displayed" compositing failure in this dev environment) — there's no automated way to catch a future regression in, say, a crossfade duration or a skeleton shape drifting from its real content's layout. |
 
-## 9. Suggested roadmap (next steps, unsequenced)
+## 11. Suggested roadmap (next steps, unsequenced)
 
 The user sequences PRs one at a time rather than committing to a fixed order; known candidates,
 not a committed sequence:
 
-1. View another user's (friend's) profile — the top item from the last full feature audit.
-2. Finish the dark-theme rollout across editor/social/friends/profile/auth screens.
-3. Comment edit/delete.
-4. Verify the Android deep-link flow on real hardware once available.
-5. Content search, notifications, selective-friend publishing, or self-service account deletion,
-   if priorities shift that way.
-
-## 10. Success criteria
-
-Since this is a learning project with no external users, "success" is defined qualitatively:
-
-- A user can manage notes and their social graph with no dead ends or silent failures.
-- Every account/auth edge case (duplicate email, wrong password, unconfirmed email, same-password
-  change) shows an accurate, specific message — not a generic or misleading one.
-- Each shipped increment stays small, is unit-tested where the logic is pure, and is live-verified
-  (not just reviewed) before merge — the collaboration pattern already established for this repo.
-- Changes to shared infrastructure (the `auth.users` trigger, the root deep-link listener) are
-  explicitly regression-checked against Notes even when the PR's primary purpose is SmartAcademy,
-  and vice versa.
+1. View another user's (friend's, or a "liked by" list liker's) profile — the longest-standing
+   item from repeated feature audits, now doubly relevant given PR #57's discovery surface.
+2. Comment edit/delete.
+3. Verify the Android/iOS deep-link, splash, and icon work on real hardware once available.
+4. Feed pagination, content-search relevance, notifications, selective-friend publishing, batched
+   mutual-friend-count fetching, or self-service account deletion, if priorities shift that way.
 
 ---
 
@@ -208,13 +311,25 @@ Since this is a learning project with no external users, "success" is defined qu
 Field names, button labels, and error strings are copied verbatim from the code so this section
 can serve as a functional spec in its own right.*
 
-## 11. App shell & entry point
+## 12. App shell & entry point
 
-- `main.dart` initializes Supabase, then runs `LearningFlutterApp`, whose `home` is
-  `ProjectsHomePage` (the app's overall dashboard of mini-projects — Notes is one entry among
-  several, reached by tapping into it from there, not the app's direct home route).
-- The whole app runs under a single global dark theme (`AppTheme.dark`, `themeMode: ThemeMode.dark`
-  — no light mode/toggle exists anywhere in the app).
+- `main.dart` initializes Supabase, then runs `LearningFlutterApp` (the Dart class name is
+  unchanged — only the user-visible display name changed, see below), whose `home` is
+  `ProjectsHomePage` (the app's overall dashboard of mini-projects, itself titled "Mini Projects" —
+  Notes is one entry among several, reached by tapping into it from there, not the app's direct
+  home route).
+- **App identity (PR #53/#54):** the app's user-visible name is **Mini Projects** everywhere it
+  surfaces — the Android launcher label, the browser tab title (`MaterialApp.title`, which Flutter's
+  web engine uses to overwrite `index.html`'s own `<title>` at runtime — a real bug fixed in PR #54
+  after the title was going blank post-boot), the iOS bundle display name, and Windows/Linux window
+  titles. A custom icon (a blurple `#5865F2` rounded-square badge with a white 2×2 apps-grid glyph)
+  replaces Flutter's stock default on every platform. The Dart package identifier
+  (`pubspec.yaml`'s `name: new_project`) was deliberately left unchanged (§9).
+- **Dark-only, everywhere, from first paint.** `AppTheme.dark`/`ThemeMode.dark` covers the whole
+  in-app UI; additionally, the *native* launch/splash screens (Android `launch_background.xml`,
+  iOS `LaunchScreen.storyboard`, and the web page's own background before Flutter/CanvasKit paints)
+  all match the same dark surface color (`#1E2128`), so there's no white flash on cold launch on any
+  platform (PR #49) — this was a real, visible gap for a "dark-theme-only" app before being fixed.
 - `LearningFlutterApp` holds one long-lived subscription to
   `AppSupabase.client.auth.onAuthStateChange`, active regardless of which screen is currently
   shown. When it observes an `AuthChangeEvent.passwordRecovery` event (fired the moment a user
@@ -226,13 +341,13 @@ can serve as a functional spec in its own right.*
   3. This is a global-navigator push (`_navigatorKey.currentState?.push(...)`), so it works no
      matter what screen the user was on when the link opened the app.
 
-## 12. Data model (Supabase / Postgres)
+## 13. Data model (Supabase / Postgres)
 
 All tables live in the `public` schema; `auth.users` is Supabase's built-in user table. Every
 table has Row-Level Security (RLS) enabled — a row is only visible/writable to a given user if a
 matching policy allows it, enforced by Postgres itself, independent of app code.
 
-### 12.1 `public.notes` — a user's private notes
+### 13.1 `public.notes` — a user's private notes
 
 | Column | Type | Notes |
 |---|---|---|
@@ -251,7 +366,7 @@ Indexed by `(user_id, updated_at desc)` for fast per-user, recency-ordered listi
 id — strictly private, no exceptions, no sharing at the table level (sharing happens by *copying*
 into `shared_notes`, described below, not by exposing this table).
 
-### 12.2 `public.profiles` — one row per user, public identity
+### 13.2 `public.profiles` — one row per user, public identity
 
 | Column | Type | Notes |
 |---|---|---|
@@ -269,7 +384,7 @@ of the user's id>`. This means every user always has *some* profile row, even be
 **RLS:** any signed-in user can read *any* profile (needed for username search and friend
 lookups) — profiles are not private. A user can only insert/update their own profile row.
 
-### 12.3 `public.friend_requests` — the friend-request lifecycle
+### 13.3 `public.friend_requests` — the friend-request lifecycle
 
 | Column | Type | Notes |
 |---|---|---|
@@ -281,7 +396,7 @@ lookups) — profiles are not private. A user can only insert/update their own p
 
 A partial unique index prevents two *simultaneous pending* requests in the exact same direction
 (same sender → same receiver) — the app's own logic separately checks both directions before
-allowing a new request (see §13.4).
+allowing a new request (see §14.4).
 
 **RLS:** a user can see a request only if they're the sender or receiver. Only the sender can
 create a request (and not to themselves). Either sender or receiver can update a request's status
@@ -289,7 +404,7 @@ create a request (and not to themselves). Either sender or receiver can update a
 allowed to make that particular transition, enforced in application logic, not by separate RLS
 rules per transition).
 
-### 12.4 `public.friendships` — confirmed friendships
+### 13.4 `public.friendships` — confirmed friendships
 
 | Column | Type | Notes |
 |---|---|---|
@@ -302,10 +417,12 @@ Friendships are stored in **canonical order** (`user_low_id < user_high_id`, enf
 check and used consistently by the app when reading/writing) so each friendship exists as exactly
 one row regardless of who's "looking it up," with a uniqueness constraint on the pair.
 
-**RLS:** a user can see a friendship row only if they're one of the two parties. Either party can
-insert (used when a request is accepted) or delete (unfriend) the row.
+**RLS:** a user can see a friendship row only if they're one of the two parties — critically, this
+means **a client can never fetch another arbitrary user's friend list**, which is exactly why
+mutual-friend counting (§13.6) has to happen through a `SECURITY DEFINER` RPC rather than a plain
+query. Either party can insert (used when a request is accepted) or delete (unfriend) the row.
 
-### 12.5 Sharing/feed tables (current schema — redesigned once, see §12.6 for history)
+### 13.5 Sharing/feed tables
 
 **`public.shared_notes`** — one row per *published note* (not per recipient):
 
@@ -341,7 +458,10 @@ removed by the app (publishing to an already-covered friend is a harmless no-op 
 | `created_at` | timestamptz |
 
 Primary key `(shared_note_id, user_id)` — a user can only like a given post once (liking twice is
-a no-op/toggle-off, handled in app logic as delete-if-exists-else-insert).
+a no-op/toggle-off, handled in app logic as delete-if-exists-else-insert). This table backs both
+the aggregate like count shown on every card **and** the full liker list in the "liked by" panel
+(§13.6, §21) — the panel's query (`selectLikesForSharedNote`) is a per-note variant of the same
+table, mirroring the existing per-note comments query exactly.
 
 **`public.shared_note_comments`** — one row per comment:
 
@@ -368,18 +488,32 @@ actually your friend. That check exists only in the Dart app logic (`publishNote
 ever iterates your real friends list). Not exploitable through the app's normal UI, but worth
 knowing before adding any new code path that writes to `shared_note_recipients`.
 
-### 12.6 Schema history note
+### 13.6 `public.mutual_friend_count` — RPC, not a table (PR #57)
+
+```sql
+mutual_friend_count(p_other_user_id uuid) returns integer
+```
+
+A `SECURITY DEFINER` SQL function (not a table) that returns how many friends the calling user has
+in common with `p_other_user_id`, without ever exposing either party's actual friend-list rows to
+the caller — only a count. Exists because `friendships`' RLS (§13.4) only ever lets a user see
+their own friendship rows; a client-side "fetch their friends and intersect" is architecturally
+impossible. Granted to `authenticated` only (explicitly not `anon` — a logged-out caller has no
+business computing mutual-friend counts about anyone). Called once per non-friend row in the
+"liked by" list, not batched (§9, §10).
+
+### 13.7 Schema history note
 
 An earlier version of the sharing tables (migration `002`) modeled `shared_notes` with **one row
 per (note, author, recipient) triple** — i.e., publishing to 5 friends created 5 separate rows for
 the same note. This caused a real bug: the author of a note could never see likes/comments on
 their *own* post, because every query filtered by `recipient_id = you`, and a naive fix would have
 shown 5 duplicate, fragmented feed cards instead of one. Migration `004` destructively redesigned
-this into the current one-row-per-note-plus-join-table shape described in §12.5. This history
-matters context-wise (it's why the "why" in §7 mentions it) but the *old* shape no longer exists
-in the live schema.
+this into the current one-row-per-note-plus-join-table shape described in §13.5. This history
+matters context-wise (it's why §9's "why" mentions it) but the *old* shape no longer exists in the
+live schema.
 
-### 12.7 Storage
+### 13.8 Storage
 
 **Bucket `profile-pictures`** — public bucket, 5 MB file-size limit, accepts only
 `image/jpeg`/`image/png`/`image/webp`. Anyone can read any file in it (avatars are public by
@@ -387,19 +521,19 @@ design). A user may only upload/update/delete files whose path starts with their
 the first folder segment (the app's convention is `<user_id>/avatar.<ext>`) — enforced by RLS on
 `storage.objects`, not just app convention.
 
-## 13. Business rules by domain
+## 14. Business rules by domain
 
 *(`NotesLogic` is the single class the UI calls into; it delegates persistence to swappable
 data-source classes, each with a real-Supabase implementation and a fake used only in tests.)*
 
-### 13.1 Email & username validity (used everywhere)
+### 14.1 Email & username validity (used everywhere)
 
 - **Valid email**: must match `^[^\s@]+@[^\s@]+\.[^\s@]+$` (something@something.something, no
   spaces).
 - **Valid username**: trimmed and lowercased, then must match `^[a-zA-Z0-9_.-]{3,30}$` — 3 to 30
   characters, letters/digits/underscore/dot/hyphen only.
 
-### 13.2 Registration (`signUpWithUsername`)
+### 14.2 Registration (`signUpWithUsername`)
 
 1. Username must be valid, else: *"Use 3-30 chars: letters, numbers, _, -, ."*
 2. Email must be valid, else: *"Enter a valid email address."*
@@ -408,29 +542,26 @@ data-source classes, each with a real-Supabase implementation and a fake used on
    the confirmation email.
 4. Interprets the response:
    - If Supabase reports the email is **already a registered, confirmed account** (detected via
-     an empty `identities` list on the returned user — Supabase's deliberately indirect way of
-     signaling this without letting an attacker enumerate registered emails via error messages):
-     *"That email is already registered. Try logging in, or use \"Forgot password\" if you don't
-     remember your password."*
+     an empty `identities` list on the returned user): *"That email is already registered. Try
+     logging in, or use \"Forgot password\" if you don't remember your password."*
    - If the new account still needs email confirmation: any session Supabase handed back is
      immediately signed out again (so an unconfirmed user is never left half-logged-in), and the
-     UI is told "not yet complete" — the app then shows a "check your email" message and offers to
-     resend the confirmation email.
+     UI shows a "check your email" message and offers to resend the confirmation email.
    - If the account is fully confirmed and active immediately (rare — only if email confirmation
      is disabled project-wide): a profile row is ensured to exist, and the UI proceeds as if login
      succeeded.
 
-### 13.3 Login (`signInWithEmail`)
+### 14.3 Login (`signInWithEmail`)
 
 1. Email must be valid, else *"Enter a valid email address."*
 2. Calls Supabase sign-in with password.
 3. If the resulting account's email isn't confirmed, the user is immediately signed back out and
    shown: *"Please confirm your email to activate your account."*
-4. Any other Supabase auth error is translated via the shared error-humanizer (§13.8) — e.g. wrong
+4. Any other Supabase auth error is translated via the shared error-humanizer (§14.9) — e.g. wrong
    password/email shows *"Incorrect email or password. Please try again."*, not a raw Supabase
    error string.
 
-### 13.4 Friend requests (`sendFriendRequestByUsername` and related)
+### 14.4 Friend requests (`sendFriendRequestByUsername` and related)
 
 Sending a request, in order, fails fast at the first violated rule:
 
@@ -442,6 +573,12 @@ Sending a request, in order, fails fast at the first violated rule:
 6. Can't already have a pending request between the two of you (checked in **either** direction),
    else *"A pending friend request already exists."*
 7. Otherwise, inserts a new pending request.
+
+**Every place a person row can be sent a request from** (Friends-tab search results, and the
+"liked by" panel) resolves and displays this status *before* the user ever taps anything, via the
+shared `FriendStatusButton` widget: `friend` (already friends), `pending` (a request already sent),
+or `none` (safe to send). This makes rules 5 and 6 above effectively unreachable through the UI in
+practice — they remain as a defense-in-depth guarantee at the logic layer.
 
 **Responding to a request** (accept/decline): only the *receiver* of a still-*pending* request may
 respond; any other case (already responded to, wrong user, request no longer exists) shows the
@@ -455,10 +592,13 @@ deleting the row (a status the schema already allowed for).
 **Removing a friend**: deletes the friendship row outright; either party may do this (enforced by
 RLS, not re-checked separately in app logic).
 
-### 13.5 Publishing notes to friends (`publishNoteToFriends` / `unpublishNoteFromFriends`)
+### 14.5 Publishing notes to friends (`publishNoteToFriends` / `unpublishNoteFromFriends`)
 
 - **You cannot publish a note if you have zero friends** — attempting to shows *"Add at least one
   friend before publishing notes."*
+- Before actually publishing, a confirmation dialog lists exactly who it'll reach (capped at 8
+  usernames + a "and N more" count for larger lists) — the user must explicitly confirm; cancelling
+  leaves the note unpublished and its editor-inline toggle correctly un-flipped.
 - Publishing copies the note's *current* title/content into `shared_notes` and adds every one of
   your current friends as a recipient. There's no way to publish to a subset — it's always
   "everyone who is currently my friend."
@@ -466,9 +606,10 @@ RLS, not re-checked separately in app logic).
   timestamp in place, rather than creating a duplicate; it also (re-)adds any friends gained since
   the last publish, but never removes a recipient who's since been unfriended.
 - Unpublishing deletes the `shared_notes` row entirely, which cascades to delete its recipients,
-  likes, and comments too (nothing is "soft-deleted").
+  likes, and comments too (nothing is "soft-deleted"). Unpublishing does **not** show a
+  confirmation dialog (only publishing does).
 
-### 13.6 The feed (`fetchFriendsFeed`)
+### 14.6 The feed (`fetchFriendsFeed`)
 
 - Shows: every post you authored, plus every post where you're a listed recipient, merged into one
   list (deduplicated by post id, sorted newest-first, capped at the 100 most recent).
@@ -476,14 +617,33 @@ RLS, not re-checked separately in app logic).
   posts.
 - Each item carries a like count, comment count, and whether *you* currently like it.
 
-### 13.7 Comments (`addFeedComment`)
+### 14.7 Comments (`addFeedComment`)
 
 - Must be signed in, else *"You are not logged in."*
 - Cannot be blank (after trimming), else *"Comment cannot be empty."*
 - Cannot exceed 500 characters, else *"Comment is too long (max 500 characters)."* — this mirrors
   a hard database constraint, so it can never be bypassed even if a client skipped this check.
 
-### 13.8 The shared error-humanizer (`userMessageForError`)
+### 14.8 Likers & mutual friends (`fetchFeedLikers` / `fetchMutualFriendCount`, PR #57)
+
+- `fetchFeedLikers(sharedNoteId)` returns every liker (id, username, avatar, liked-at timestamp),
+  oldest-liked-first, resolved through the same profile-batch-hydration helper every other
+  people-list in the app uses.
+- The current user, if they're among the likers, is **kept in the list** (not filtered out) and
+  sorted to the very top, rendered as "You" with no friend-status button — an earlier version
+  excluded the current user entirely, which produced a misleading "No likes yet" when the viewer
+  was the *only* liker (fixed the same PR, after live testing surfaced it).
+- After the current user, friends are sorted next, then everyone else — each group preserves its
+  original like-order (oldest-liked-first) internally.
+- For each non-friend, non-self row, `fetchMutualFriendCount` is called once (see §13.6) and its
+  result is displayed as "N mutual friends" once it resolves (a progressive-enhancement fetch —
+  the row renders immediately with just a friend-status button, then the mutual count fades in a
+  moment later once that row's RPC call completes).
+- Tapping "Add Friend" from this list calls the same `sendFriendRequestByUsername` as everywhere
+  else in the app, and optimistically flips that row to the `pending` status without reloading the
+  whole list.
+
+### 14.9 The shared error-humanizer (`userMessageForError`)
 
 Every low-level error (from Supabase Auth, Postgrest/database, or Storage) is translated through
 one central function before ever reaching the user, so raw technical errors are never shown
@@ -491,9 +651,7 @@ directly. Rules, checked in order:
 
 - A password-change rejected specifically because it matches your *current* password →
   *"Your new password must be different from your current password."* (matched on Supabase's
-  stable `same_password` error **code**, not message text — a deliberate fix for an earlier bug
-  where matching on the word "password" in the message caused this exact case to be
-  misreported as "Incorrect email or password.")
+  stable `same_password` error **code**, not message text.)
 - Anything that looks like a bad login (invalid credentials/password) →
   *"Incorrect email or password. Please try again."*
 - Anything about a duplicate email → *"That email is already registered."*; duplicate username →
@@ -511,128 +669,375 @@ directly. Rules, checked in order:
 - Anything else falls back to a plain, stripped version of the error message, or a caller-supplied
   fallback string if the message is empty.
 
-## 14. Screen-by-screen walkthrough
+---
 
-### 14.1 Notes home (`NotesPage`)
+# PART III — PAGE INVENTORY
 
-The main screen once logged in and confirmed. App bar titled **"Notes"**, with three icon buttons:
-a **Friends & feed** button (shows a numeric badge when you have pending incoming friend
-requests), a **Profile** button (shows your avatar), and a **Sign out** button.
+Every page/surface in the Notes feature, documented as a product artifact: what it's *for*, what's
+*on it*, what the user can *do*, and the concrete criteria that make it acceptable to ship or
+regress-check against. This part supersedes the older flat "screen-by-screen walkthrough" format —
+the same information is here, organized so each page is a self-contained unit.
 
-Below that: a search box (placeholder *"Search by title"*) and three filter chips — **All**,
-**Pinned**, **Favorites** — plus a **New** button that opens a small dialog (title *"New Note"*,
-one text field labeled *"Title"*) to create a note; leaving the title blank silently cancels
-creation. On success, it jumps straight into the note editor for the new note.
+## 15. Notes list (`NotesPage`, Notes tab)
 
-The list itself shows one row per note (pinned notes always sort first, then by most-recently-
-updated). Each row shows the title, a two-line content preview (or *"No additional text"* if
-empty), the last-updated time, and three icon toggles: **favorite** (star), **pin**, and
-**publish/share to friends** (globe icon — filled if currently published). A published note also
-shows a small **"Shared with friends"** badge. Swiping a row left reveals a delete action, which
-asks for confirmation (*"Delete Note"* — *"Delete "<title>"? This action cannot be undone."*)
-before actually deleting.
+**Purpose:** the default landing surface once logged in — browse, organize, and jump into your own
+private notes.
 
-If notes fail to load, an error card shows the raw failure reason. If there are simply no notes
-yet (or none match the current search/filter), an empty-state card reads **"No notes yet — Create
-your first note to get started."**
+**Content:**
+- App bar titled "Notes" (crossfades when switching tabs), with a Profile icon (shows your avatar,
+  or a small spinner while it's loading) and a Sign-out icon.
+- A search box (*"Search by title or content"*) and three filter chips — **All**, **Pinned**,
+  **Favorites**.
+- A **New** button opening a small dialog (*"New Note"*, one **Title** field) — leaving the title
+  blank silently cancels creation; success jumps straight into the editor for the new note.
+- One row per note (pinned notes sort first, then most-recently-updated), each showing: title, a
+  two-line content preview (or *"No additional text"*), last-updated time, favorite/pin icon
+  toggles, and a 3-dot overflow menu with **Publish to friends**/**Unpublish from friends** and
+  **Delete** (red, with a divider separating it from Publish).
+- A **"Shared with friends"** pill appears under a published note's preview, animating in/out as
+  publish state changes.
+- Loading: a shimmering skeleton shaped like the real list. Empty (no notes, or none match the
+  current search/filter): **"No notes yet — Create your first note to get started."** Error: a
+  themed error banner.
 
-### 14.2 Login / register (`NotesAuthPage`)
+**User actions:**
+- Search/filter the list.
+- Create a note (opens the editor immediately).
+- Tap a row to open it in the editor.
+- Toggle favorite/pin inline (haptic + spring-pop on becoming active).
+- Publish/unpublish from the overflow menu (publish shows a recipient-confirmation dialog first).
+- Delete from the overflow menu, or swipe the row left — both go through the same delete-then-
+  undo-snackbar flow (a few seconds to tap **Undo** before the delete is final).
+- Open Profile or sign out from the app bar.
 
-A single card headed **"Welcome to Notes"** with a **Login / Register** segmented toggle.
+**Acceptance criteria:**
+- A note created, edited, pinned, favorited, published, or deleted here is reflected correctly and
+  immediately (optimistically) without a full-list flash, and survives a real reload from the
+  server.
+- Search matches both title and note content, case-insensitively.
+- Deleting via either path (menu or swipe) is undoable within the snackbar's visible duration, and
+  irreversible only after it's dismissed/expires.
+- Publishing with zero friends is blocked with a clear, specific message, not a generic failure.
+- The loading skeleton's shape matches the real list's layout closely enough that the transition
+  doesn't visibly jump.
 
-Both modes ask for **Email** and **Password**. Register mode additionally asks for a **Username**
-(above the email field) and a **Confirm password** field (below). Client-side validation before
-submit: username 3–30 chars of letters/digits/`_`/`-`/`.`; a plausible email shape; password at
-least 6 characters; confirm-password must match.
+## 16. Note editor (`NoteEditorPage`)
 
-Login mode has a **"Forgot password?"** link that opens a small dialog asking for an email
-address and sends a reset link — the response is always the same neutral message (**"If an
-account exists for that email, a reset link has been sent."**) regardless of whether that email is
-actually registered, so the flow can't be used to check who has an account.
+**Purpose:** read and edit one note's full content.
 
-After registering, if the account needs email confirmation, the page switches back to Login mode
-and shows: **"Account created. Check your email to confirm it, then log in with your email."**,
-plus a **"Resend confirmation email"** button that appears from then on.
+**Content:**
+- A borderless, document-like layout: large title field, a divider, then a full-height content
+  field (placeholder *"Start writing..."*).
+- App bar with a **Delete** icon (trash) and last-edited time.
+- Inline favorite/pin/publish-status toggles in the header (same icons/behavior as the list row).
+- A live word/character count and a **"Unsaved changes"**/**"Saved"** status pill, both at the
+  bottom of the content area, crossfading between states.
 
-Any auth failure shows the humanized message from §13.8 in a red banner.
+**User actions:**
+- Edit title/content — autosaves 1.5s after the last keystroke (only while dirty and the title is
+  non-empty; a blank title mid-edit silently skips scheduling rather than erroring in the
+  background).
+- Toggle favorite/pin/publish inline without leaving the editor.
+- Manually navigate back — always attempts a save first if dirty.
+- Delete — opens a confirm dialog (*"Delete Note"* / *"Are you sure you want to delete this
+  note?"*), unlike the list's undo-snackbar pattern, because this flow pops immediately after
+  deleting and an undo window doesn't fit as naturally as it does in a persistent list.
 
-### 14.3 "Confirm your email" gate (`NotesActivationRequiredPage`)
+**Acceptance criteria:**
+- Saving with a blank title is blocked with a visible snackbar (*"Title cannot be empty."*) and
+  never silently discards content.
+- The dirty/saved pill accurately reflects real unsaved state at all times, including immediately
+  after a save and immediately after a fresh edit following one — no stuck-"Saved" or stuck-
+  "Unsaved" states.
+- Autosave never fires a redundant duplicate save if a manual save/navigation-away already just
+  happened.
+- Publish toggled from here correctly shows the same recipient-confirmation dialog as the list, and
+  correctly declines to flip local state if that dialog is cancelled.
 
-Shown instead of the notes list if you're logged in but haven't confirmed your email yet. A single
-card: **"Please confirm your email to activate your account."** and a **"Back to login"** button
-that signs you out.
+## 17. Feed (`FeedPage`, Feed tab)
 
-### 14.4 Set a new password (`ResetPasswordPage`)
+**Purpose:** a combined, chronological view of your own and your friends' published notes.
 
-Only reached via a password-reset email link (see §11). Asks for **New password** and **Confirm
-new password** (6-char minimum, must match). On success, pops back and shows a confirmation
-snackbar: **"Password updated. You can now log in with it."**
+**Content:**
+- One card per published note: author (**"You"** for your own posts, otherwise **@username**),
+  publish time, title, content, a like button + tappable, bold, primary-colored count, a comment
+  icon + count, and a **"Read-only"** badge (signaling this is a shared copy, not the live
+  original).
+- Cards fade+slide into place in a staggered sequence on first load.
+- Loading: skeleton shaped like the card list. Empty: **"No shared notes yet — When your friends
+  publish notes, they will appear here."**
 
-### 14.5 Note editor (`NoteEditorPage`)
+**User actions:**
+- Pull to refresh.
+- Like/unlike a card directly from the feed (optimistic, with a haptic and an icon spring-pop).
+- Tap the like count to open the "liked by" panel (§21).
+- Tap a card or its comment icon to open the post-detail page (§18).
 
-A borderless, document-like editor: a large title field at top, a divider, then a full-height
-content field with placeholder **"Start writing..."**. A **Save** button (with a checkmark icon)
-and a **Delete** button (trash icon) sit in the app bar. Attempting to save with a blank title
-shows a snackbar **"Title cannot be empty."** and doesn't save. After a successful save, a small
-**"Saved"** pill briefly appears. Navigating away from the editor always attempts to save first.
-Deleting asks for confirmation (**"Delete Note"** — **"Are you sure you want to delete this
-note?"**).
+**Acceptance criteria:**
+- The feed never shows a friend's post to someone who isn't currently a listed recipient, and
+  always shows the viewer's own posts regardless of recipient status.
+- Liking/unliking updates the count and icon immediately, and reconciles with the server silently
+  on success or reverts (with an error snackbar) on failure.
+- The unseen-post nav badge (§19) accurately reflects posts published since the user's last feed
+  visit, and never counts the viewer's own posts as unseen.
 
-### 14.6 Friends & Feed (`NotesSocialPage`)
+## 18. Post detail (`FeedPostDetailPage`)
 
-A two-tab screen: **Friends** and **Feed**.
+**Purpose:** full view of one published note plus its comments, reached from the feed.
 
-**Friends tab:**
-- A search box (**"Find users by username"**) with a **Search** button; results list matching
-  users with an **Add** button next to each to send a request. No matches shows **"No users
-  found. Make sure the username is correct."**
-- **Incoming requests** section (with a count badge) — each shows the requester's username with
-  **Accept**/**Decline** buttons. Empty state: **"No pending incoming requests."**
-- **Sent requests** section — shown as removable chips (one per pending outgoing request); tapping
-  the chip's delete icon cancels that request. Empty state: **"No pending outgoing requests."**
-- **Friends** section (with your current friend count in the heading) — each row shows a friend's
-  avatar/username and how long you've been friends, with a **remove-friend** icon that opens a
-  confirmation dialog (**"Remove Friend"** — *"Remove @username from your friends? You'll need to
-  send a new friend request to reconnect."*). Empty state: **"No friends yet."**
+**Content:**
+- Author, publish time, full title/content (expandable if long, via `ExpandableText`'s smooth
+  height animation), a like row (icon + tappable count), then a "Comments (N)" section listing every
+  comment inline (author, text, date) with a text box at the bottom to add a new one.
+- Loading: a skeleton for the comments section specifically (the header content above it isn't
+  re-fetched, so it renders immediately).
 
-**Feed tab:** a scrolling list of published-note cards. Each card shows the author (**"You"** for
-your own posts, otherwise **@username**), when it was published, the title and content, and a
-footer with a **like** button + count and a **comment** button + count. Every card also shows a
-**"Read-only"** badge, signaling you're viewing a shared copy, not the live original note. Tapping
-the comment icon opens a bottom sheet titled **"Comments"** listing every comment (author, text,
-date) with a text box at the bottom to add your own (blocked client-side if empty; the 500-char
-cap is enforced by the logic layer and, ultimately, the database itself). Empty feed shows: **"No
-shared notes yet — When your friends publish notes, they will appear here."**
+**User actions:**
+- Like/unlike.
+- Tap the like count to open the "liked by" panel (§21).
+- Read/expand the full note content.
+- Post a new comment (blocked client-side if empty; 500-char cap enforced by both the logic layer
+  and, ultimately, the database).
 
-### 14.7 Profile (`NotesProfilePage`)
+**Acceptance criteria:**
+- The 500-character comment cap is enforced identically whether or not the client-side check is
+  somehow bypassed (the database CHECK constraint is the real guarantee).
+- Posting a comment updates the visible comment count and list immediately without requiring the
+  user to leave and re-enter the page.
 
-Reached from the Notes home app bar. Three sections:
-- **Avatar** — current picture plus a **"Change profile picture"** button (opens the device's
-  photo gallery; picked images are resized/compressed before upload). Success shows **"Profile
-  picture updated."**
-- **Username** — a single field, save button labeled **"Save username"**; success shows
-  **"Username updated."**
-- **Password** — new/confirm password fields, save button labeled **"Update password"**; success
-  shows **"Password updated."** and clears both fields.
+## 19. Friends & Feed navigation shell
 
-Every section validates client-side using the same rules as §13.1, and shows the §13.8 humanized
-message on any failure (e.g. uploading an unsupported file type shows *"That file is not
-supported. Use JPG, PNG, or WEBP up to 5MB."*).
+**Purpose:** the persistent app frame hosting Notes/Feed/Friends as sibling tabs plus a global
+Profile entry point.
 
-## 15. End-to-end user flows (worked examples)
+**Content:**
+- A frosted/translucent bottom `NavigationBar` (blurred content visible through it) with three
+  destinations — Notes, Feed (badge = unseen post count), Friends (badge = pending incoming request
+  count) — each badge bouncing in with a spring-pop the moment its count goes from zero to
+  non-zero.
+- A persistent Profile icon in the app bar, present on all three tabs.
+- A soft background gradient behind the tab content, consistent across all three tabs.
+
+**User actions:**
+- Switch tabs (each tab's scroll/search/loaded-data state is preserved across switches via
+  `IndexedStack`, not reset).
+- Open Profile from any tab.
+
+**Acceptance criteria:**
+- Switching tabs never resets a tab's search box, scroll position, or already-loaded data.
+- Badge counts are accurate at all times and animate in exactly once per zero-to-nonzero
+  transition, never replaying on every rebuild.
+
+## 20. Friends (`FriendsTab`, Friends tab)
+
+**Purpose:** manage the friend graph — find and add people, respond to requests, review current
+friends.
+
+**Content:** four sections, each its own bounded card:
+- **Search** — a username search box + **Search** button; results show avatar/username and a
+  `FriendStatusButton` (Friends tick / Requested / Add Friend) reflecting real status, not a blind
+  "Add." No matches: **"No users found. Make sure the username is correct."**
+- **Incoming requests** (count badge, spring-pop on a new arrival) — each row: avatar/username +
+  **Accept**/**Decline**. Empty: **"No pending incoming requests."**
+- **Sent requests** — removable chips (one per pending outgoing request); tapping a chip's delete
+  icon cancels that request. Empty: **"No pending outgoing requests."**
+- **Friends** (count in the heading) — avatar/username + how long you've been friends + a
+  remove-friend icon (confirmation dialog: *"Remove Friend"* / *"Remove @username from your
+  friends? You'll need to send a new friend request to reconnect."*). Empty: **"No friends yet."**
+
+All four sections' content smoothly resizes (`AnimatedSize`) as their state changes, rather than
+snapping.
+
+**User actions:**
+- Search for a username and see their real connection status before deciding to add them.
+- Send/accept/decline/cancel a request; unfriend an existing friend.
+
+**Acceptance criteria:**
+- A search result for someone already a friend or already pending never shows an actionable "Add"
+  control that would just produce a rejection error if tapped.
+- Accepting a request correctly creates exactly one `friendships` row (canonical low/high order),
+  never a duplicate.
+- Every section's empty/populated transition animates smoothly, with no instant layout jump.
+
+## 21. "Liked by" panel (`liked_by_sheet.dart`, PR #57)
+
+**Purpose:** show who liked a specific post, and help the viewer discover/add people they share
+mutual friends with.
+
+**Content:** a floating, centered, rounded panel (not a full page, not an edge-to-edge bottom
+sheet) with the rest of the screen visibly blurred behind it. Header: "Liked by" + a close icon.
+Body: one row per liker — **you first** if you liked it too (labeled "You", no status button), then
+friends (Friends tick), then everyone else (a mutual-friend-count subtitle once it resolves, and an
+Add Friend button). Loading: a centered spinner. Empty (nobody has liked it, and the viewer hasn't
+either): **"No likes yet."**
+
+**User actions:**
+- Tap outside the panel (on the blurred backdrop) or the close icon to dismiss.
+- Tap "Add Friend" on a non-friend row — sends a request and optimistically flips that row to
+  "Requested" without reloading the list.
+
+**Acceptance criteria:**
+- If the viewer is the only liker, the panel shows them as "You" at the top — never a misleading
+  "No likes yet" (a real bug found and fixed live during this PR).
+- Mutual-friend counts never expose the other person's actual friend list, only a number.
+- The panel never shows an actionable Add-Friend control for someone already a friend, already
+  pending, or the viewer themselves.
+
+## 22. Profile (`NotesProfilePage`)
+
+**Purpose:** manage your own identity — avatar, username, password.
+
+**Content:** three sectioned cards:
+- **Avatar** — current picture (crossfades on change) + **"Change profile picture"** (opens the
+  device photo gallery; images are resized/compressed before upload). Success: **"Profile picture
+  updated."**
+- **Username** — one field, **"Save username"**. Success: **"Username updated."**
+- **Password** — new/confirm fields (with visibility toggles), **"Update password"**. Success:
+  **"Password updated."**, clears both fields.
+
+Loading: a skeleton shaped like all three sections.
+
+**User actions:** upload a new avatar; change username; change password.
+
+**Acceptance criteria:**
+- Every field validates client-side using the same rules as §14.1 before ever hitting the network.
+- An unsupported avatar file type/size shows the specific, correct message (§14.9), not a generic
+  failure.
+- A successful password change clears both password fields (never leaves a stale value visible).
+
+## 23. Auth: Login / Register (`NotesAuthPage`)
+
+**Purpose:** the entry point for signed-out users.
+
+**Content:** a single card headed **"Welcome to Notes"**, with a circular icon badge, a Login/
+Register segmented toggle, Email + Password (Register adds Username above, Confirm password
+below, both with visibility toggles), and a **"Forgot password?"** link (Login mode only).
+
+**User actions:** register; log in; request a password reset; resend a confirmation email (once
+shown, post-registration).
+
+**Acceptance criteria:**
+- Client-side validation (§14.1) catches invalid email/username/password shape before any network
+  call.
+- The forgot-password flow's response is identical regardless of whether the email is actually
+  registered (no account-existence leak).
+- Every distinct auth failure shows its own specific, correct message (§14.9), never a raw
+  Supabase error string.
+
+## 24. "Confirm your email" gate (`NotesActivationRequiredPage`)
+
+**Purpose:** block access to the app until the account's email is confirmed.
+
+**Content:** a single card: **"Please confirm your email to activate your account."** + **"Back to
+login"** (signs out).
+
+**User actions:** sign out and return to login.
+
+**Acceptance criteria:** an unconfirmed account can never reach any authenticated screen, even
+though Supabase itself did issue a session for it.
+
+## 25. Set a new password (`ResetPasswordPage`)
+
+**Purpose:** complete a password-reset flow, reached only via an emailed reset link.
+
+**Content:** New password + Confirm new password (both with visibility toggles, 6-char minimum,
+must match).
+
+**User actions:** set a new password.
+
+**Acceptance criteria:** on success, pops back to wherever the app was and shows **"Password
+updated. You can now log in with it."**; the flow is reachable from any screen the user happened
+to be on when the link opened the app (global-navigator push, §12).
+
+---
+
+# PART IV — ACCEPTANCE CRITERIA
+
+Part III already states page-level acceptance criteria. This part states what "done" means one
+level up (a whole functional module) and one level up from that (the project as a whole).
+
+## 26. Module-level acceptance criteria
+
+**Auth & Account** — accepted when: every distinct failure mode (bad password, unconfirmed email,
+duplicate email/username, same-password rejection, rate-limiting) shows its own correct,
+non-generic message; a user can complete signup → confirm → login → forgot/reset password → change
+username/avatar/password without ever hitting a dead end or an unhandled raw error.
+
+**Notes CRUD** — accepted when: create/edit/delete/pin/favorite/search all work with no data loss
+under normal use (including autosave and app backgrounding mid-edit); delete is always recoverable
+for a few seconds via undo, from both entry points (menu and swipe); search matches title and
+content correctly and case-insensitively.
+
+**Friends & Social Graph** — accepted when: the full request lifecycle (send/accept/decline/
+cancel/unfriend) is provably free of duplicate-friendship or duplicate-pending-request states; every
+person row anywhere in the app (search results, liked-by list) shows accurate real-time connection
+status via the shared `FriendStatusButton`, never a stale or misleading control.
+
+**Publishing & Feed** — accepted when: publishing always reaches exactly the friend set confirmed
+in the pre-publish dialog; the feed never leaks a post to a non-recipient at the RLS layer
+regardless of what the UI shows; unpublishing fully removes a post and its engagement data with no
+orphaned rows.
+
+**Engagement (Likes/Comments/Liked-by/Mutuals)** — accepted when: like/comment counts are always
+consistent between the feed card, the detail page, and the liked-by panel; the liked-by panel never
+misrepresents "nobody liked this" when the viewer themselves did; mutual-friend counts are correct
+and never leak the other party's actual friend list.
+
+**Profile** — accepted when: avatar/username/password changes all succeed or fail with a specific,
+correct message, and a successful change is reflected everywhere that data appears (list, feed,
+comments, liked-by) without requiring an app restart.
+
+**Visual/Motion Design System** — accepted when: every screen in the feature uses the shared dark
+theme and shared animation primitives (no one-off colors, no un-animated conditionally-appearing
+content); the app's identity (name, icon, splash) is consistent across every platform surface that
+displays one.
+
+**Testing Infrastructure** — accepted when: every `*Logic` method with non-trivial branching logic
+has unit test coverage via its data source's fake, with the explicitly-accepted exception of a few
+real-Supabase-only paths (`updateUsername`'s `auth.updateUser` call, `uploadProfileAvatar`'s storage
+write, real RLS enforcement) that are integration-tested only, not silently untested.
+
+## 27. Whole-project acceptance criteria
+
+Since this is a learning project with no external users, "finished" is defined qualitatively, not
+by a launch date or user-adoption metric:
+
+- A user can manage notes and their entire social graph (friends, publishing, engagement,
+  discovery) with no dead ends, silent failures, or misleading states.
+- Every account/auth edge case shows an accurate, specific message — never a generic or misleading
+  one.
+- The UI is visually and behaviorally consistent across every screen in the feature — one design
+  system, one motion language, applied everywhere, not just the first screen built.
+- Each shipped increment stays small, is unit-tested where the logic is pure, and is live-verified
+  (not just reviewed) before merge — the collaboration pattern established for this repo from PR #1
+  onward and never abandoned as the project grew.
+- Changes to shared infrastructure (the `auth.users` trigger, the root deep-link listener, shared
+  widgets like `FriendStatusButton`/`PopOnChange`/`NotesErrorBanner`) are explicitly regression-
+  checked against every consumer, not just the one that motivated the change.
+- New backend-touching changes (new tables, RLS policies, or RPC functions) get a dedicated
+  design/validation pass before implementation — either a live Plan-agent review or equivalent
+  scrutiny — given this project's own history of RLS bugs that only live testing ever caught.
+- The product's actual differentiator (a closed, mutual friend-graph with lightweight publishing
+  and engagement — §4) stays legible in the UI rather than getting lost under generic notes-app or
+  generic social-app conventions borrowed without a reason tied back to that differentiator.
+
+---
+
+# PART V — END-TO-END USER FLOWS
 
 **A. New user signs up, writes a note, and shares it:**
 1. Opens Notes → sees `NotesAuthPage` (not logged in).
 2. Switches to Register, enters username/email/password/confirm, submits.
 3. Gets *"Account created. Check your email to confirm it..."*, follows the email link (which
    also confirms the account), returns and logs in.
-4. Lands on the empty notes list, taps **New**, types a title, is dropped into the editor, writes
-   content, backs out (auto-saves).
-5. Adds a friend first (Friends tab → search username → Add → friend accepts), since publishing
-   with zero friends is blocked.
-6. Back on the notes list, taps the globe/publish icon on their note → *"Note published to your
-   friends feed."* The note now shows the **"Shared with friends"** badge.
-7. Their friend opens their own Feed tab and sees the new post, can like/comment on it.
+4. Lands on the empty notes list (skeleton, then the real empty state), taps **New**, types a
+   title, is dropped into the editor, writes content (autosaves), backs out.
+5. Adds a friend first (Friends tab → search username → sees "Add Friend" since not yet connected
+   → sends → friend accepts), since publishing with zero friends is blocked.
+6. Back on the notes list, opens the note's overflow menu, taps **Publish to friends**, confirms
+   the recipient list in the dialog. The note now shows the **"Shared with friends"** pill.
+7. Their friend opens their own Feed tab (staggered card entrance), sees the new post, can like/
+   comment on it, and tap the like count to see who else liked it.
 
 **B. Forgotten password (web):**
 1. On `NotesAuthPage`, taps **"Forgot password?"**, enters email, gets the neutral
@@ -644,15 +1049,27 @@ supported. Use JPG, PNG, or WEBP up to 5MB."*).
    the new password.
 
 **C. Friend-request lifecycle:**
-1. A sends B a request → B sees it under "Incoming requests" with a badge; A sees it under "Sent
-   requests" as a chip.
+1. A sends B a request → B sees it under "Incoming requests" with a badge (spring-pop on arrival);
+   A sees it under "Sent requests" as a chip.
 2. B declines → request status becomes `declined`; it disappears from both lists (only *pending*
-   requests are shown).
+   requests are shown), each section's card smoothly resizing rather than snapping.
 3. A can send a new request to B any time after that (no cooldown), repeating step 1.
 4. Alternatively, A could have cancelled the request themselves before B responded, which also
    just changes the status (to `cancelled`) rather than deleting the row.
 
-## 16. Glossary
+**D. Discovering a mutual connection through engagement (PR #57):**
+1. A publishes a note; both B (a friend of A) and C (a stranger to A's viewer, D) like it.
+2. D — a friend of B, but not yet connected to C — opens the post and taps the like count.
+3. The "liked by" panel shows B at the top (Friends tick, since D and B are already connected),
+   then C below with a mutual-friend count (D and C share at least one mutual friend, likely B) and
+   an **Add Friend** button.
+4. D taps **Add Friend** on C's row — it flips to "Requested" immediately; C later sees the
+   request appear under their own "Incoming requests" and can accept it, completing the
+   discovery-to-connection loop the feature was built for.
+
+---
+
+## Glossary
 
 - **Shared note**: the *published copy* of a note visible in the feed — distinct from the private
   original in `notes`; editing the original after publishing does not update the shared copy
@@ -661,6 +1078,13 @@ supported. Use JPG, PNG, or WEBP up to 5MB."*).
   during publish, never removed automatically (e.g. unfriending someone doesn't retroactively hide
   old shared posts from them).
 - **Own post**: a feed item where you are the author, shown labeled "You" rather than a username.
+- **Liker**: anyone who has liked a specific published note; shown in that note's "liked by" panel.
+- **Mutual friends**: friends the current user and another person both have in common — computed
+  server-side via a privacy-preserving RPC (§13.6) that never exposes either party's actual friend
+  list, only a count.
+- **Friend status**: one of three states (`friend`, `pending`, `none`) shown via the shared
+  `FriendStatusButton` on any person row anywhere in the app, so the same person never shows
+  inconsistent or misleadingly-actionable controls in different places.
 - **Activation** / **confirmed email**: Supabase's built-in email-confirmation state; the app
   treats an unconfirmed account as functionally logged-out (auto-signs-out and shows the
   activation gate) even though Supabase itself did issue a session.

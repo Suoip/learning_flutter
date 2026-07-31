@@ -374,3 +374,48 @@ the app's primary target, ahead of the still-deferred desktop layout):
 - **Accessibility**: `ProfileAvatar` gave screen readers nothing at all. Wrapped it in
   `Semantics(label: 'Profile picture of $username', image: true)`. Scoped to just this one
   confirmed gap, not a broader accessibility audit.
+
+## 10. Round 4 — Loading states, motion language, and app identity ✅ Shipped
+
+Everything in this round (PRs #47–#56) was done as ad hoc "keep looking for more polish" passes in
+a later session, rather than a single planned audit like Rounds 1–3 — so it's recorded here after
+the fact, in shipped order, rather than as an audit-then-decisions pair like the earlier rounds.
+None of it was added to this doc *before* being built; this section exists so the doc stays a
+complete history rather than going stale the way it briefly did.
+
+- **Loading skeletons** (PR #47, hotfixed for a CI formatting break in #48): replaced every bare
+  `CircularProgressIndicator` full-screen/full-section loading state — Notes list, Feed, Friends,
+  a post's comments, and (added slightly later, PR #52, after being found missing from this same
+  sweep) the Profile page — with a shimmering skeleton shaped like that screen's real content
+  (`lib/pages/notes/notes_skeletons.dart`). The very first "loading spinners instead of skeleton
+  screens" gap flagged (and left unpicked) as far back as Round 2's own audit.
+- **Dark native splash screens & app icon** (PR #49, PR #53): the app had been dark-theme-only
+  since PR #16, but every platform's *native* launch screen (Android, iOS, web's pre-Flutter-paint
+  background) was still Flutter's stock white/blue default — fixed to match the theme's dark
+  surface color. PR #53 went further and replaced the stock default app icon and the literal
+  placeholder app name ("new_project") with a real identity ("Mini Projects" + a custom blurple
+  icon) — see [PROJECT_PLAN.md §12](PROJECT_PLAN.md) for the full rationale, since this is more a
+  branding/identity decision than a pure UI pass. PR #54 fixed a real bug this surfaced: the
+  browser tab title went blank after the app booted, because `MaterialApp` never set a `title:` and
+  Flutter's web engine uses that value to overwrite `index.html`'s own `<title>` at runtime.
+- **Background depth & motion language** (PR #50, #51, #55, #56): a subtle background gradient
+  behind the tab shell; a frosted/translucent bottom nav bar (`BackdropFilter` blur, letting that
+  gradient read through); a shared `PopOnChange` widget giving a spring-pop bounce to any element
+  becoming "active" (favorite/pin/like icons, then later reused for nav-bar and friend-request
+  badges); a shared `StaggeredListItem` widget giving the Notes and Feed lists a fade+slide
+  entrance, staggered by index but keyed by item id so pinning/reordering doesn't replay or skip
+  the wrong item's animation; and a systematic sweep converting every remaining instant-snap
+  conditional-content swap (the publish pill, the AppBar tab title, all four Friends-tab sections,
+  the editor's Saved/Unsaved pill, `ExpandableText`'s show-more toggle, the like count, and the
+  profile avatar on change) onto `AnimatedSize`/`AnimatedSwitcher` — the same two primitives reused
+  everywhere rather than one-off animation code per screen.
+- **Theme-consistency fixes** (PR #52): a live audit (not a planned item) turned up real leftovers
+  predating the dark-theme rollout and the Round 2 error-banner unification — `notes_auth_page.dart`
+  and `feed_post_detail_page.dart` still had hardcoded `Colors.red.shade50`/`Colors.blue.shade50`
+  pastels, and `ProfileAvatar`'s no-photo fallback had no theme color at all (plain Material grey).
+  Fixed onto the existing `errorContainer`/`tertiaryContainer`/`primaryContainer` tokens.
+
+**Non-goals still holding**: no desktop layout (§8.1, still deferred), no light theme, no
+SmartAcademy changes. The mutual-friend-discovery feature that came right after this round (PR #57)
+is deliberately **not** documented here — it's new functionality, not a UI/UX pass on existing
+scope, so it belongs in [PROJECT_PLAN.md](PROJECT_PLAN.md) instead (see that doc's Part III, §21).
